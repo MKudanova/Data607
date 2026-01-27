@@ -1,0 +1,22 @@
+---
+title: "Assignment1(baby names)"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Quarto
+
+## Introduction
+
+This data set contains information on popular baby names in NYC, including birth year, ethnicity, gender and popularity rank. The data set is useful for exploring trends in baby names among New Yorkers. The original data set sourced from Data.gov: <https://catalog.data.gov/dataset/popular-baby-names>
+
+## Approach
+
+First, the data set will be saved on my GitHub repository (DATA607) to ensure reproducibility. Then, the raw data will be loaded into R and reviewd. Here one variable ("Ethnicity") will be removed, and another will be renamed from "Rank" to "Popularity Rank" in order to improve clarity. These steps are intended to produce a more focused data frame.
+
+``` r
+```
+
+``` r
+```
