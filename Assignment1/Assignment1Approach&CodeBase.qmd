@@ -36,4 +36,9 @@ head(babies_new)
 
 ## Conclusion
 
-As my first assignment using the R programming language and the Quarto format, this project provided an opportunity to practice loading a dataset and performing basic data transformations in a reproducible environment. Through this process, a subset of relevant variables was selected and a column name was renamed to improve clarity. This assignment established a foundation for working with data in R. As a next step, this cleaned data set could be extended by filtering to a specific year and summarizing name popularity using the Count and Popularity_Rank variables.
+As my first assignment using the R programming language and the Quarto format, this project 
+provided an opportunity to practice loading a dataset and performing basic data transformations 
+in a reproducible environment. Through this process, a subset of relevant variables was selected 
+and a column name was renamed to improve clarity. This assignment established a foundation for 
+working with data in R. As a next step, this cleaned data set could be extended by filtering 
+to a specific year and summarizing name popularity using the Count and Popularity_Rank variables.
