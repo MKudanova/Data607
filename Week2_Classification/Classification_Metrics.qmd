@@ -1,0 +1,14 @@
+---
+title: "Week 2B Classification Metrics"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+Classification metrics
+
+## Approach
+
+## 
