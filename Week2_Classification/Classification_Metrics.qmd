@@ -6,9 +6,23 @@ editor: visual
 ---
 
 ## Introduction
+This assignment focuses on evaluating the performance of a binary 
+classification model. Using predicted probabilities and known class 
+labels, the goal is to understand how different decision thresholds 
+influence model errors and performance metrics.
+
 
 Classification metrics
 
 ## Approach
 
-## 
+To evaluate the performance of a binary classification model, I will work
+with a provided dataset containing model-predicted probabilities and true class labels.
+My step-by-step plan involves first examining the distribution of the actual class labels to establish
+a baseline using the null error rate. I will then assess how converting predicted probabilities into 
+class labels at different decision thresholds affects classification outcomes. Using these results, 
+I will construct confusion matrices and derive performance metrics to understand how threshold choice 
+influences the balance between different types of classification errors.
+
+
+## Base Code
