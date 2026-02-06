@@ -1,0 +1,14 @@
+---
+title: "Movie_ratings"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+The purpose of this assignment is to practice integrating SQL and R by building and analyzing a small, real-world style dataset. Specifically, this project focuses on collecting movie ratings from multiple participants, storing those ratings in a relational database, and then loading the data into R for inspection and basic analysis
+
+## Approach
+
+The project will follow a simple, code-focused workflow. First, movie rating data will be collected using a Google Form survey based on approximately six currently popular movies. Participants will be asked to rate only the movies they have seen on a 1–5 scale, which will naturally result in missing ratings when a movie has not been viewed.The collected data will be stored in a PostgreSQL database using a normalized relational design with separate tables for users, movies, and ratings. Only observed ratings will be inserted into the ratings table, allowing missing values to be represented implicitly.The data will be loaded from the SQL database into R as a dataframe for inspection and basic analysis. Summary statistics such as rating counts and average ratings will be computed, with missing values handled explicitly in R. All SQL and R code used in this workflow will be included in a public GitHub repository to support reproducibility.
