@@ -7,22 +7,101 @@ editor: visual
 
 ## Introduction
 
-The purpose of this assignment is to practice integrating SQL and R 
-by building and analyzing a small, real-world style dataset. Specifically, 
-this project focuses on collecting movie ratings from multiple 
-participants, storing those ratings in a relational database, and 
-then loading the data into R for inspection and basic analysis
+The purpose of this assignment is to practice integrating SQL and R by building and analyzing a small, real-world style dataset. Specifically, this project focuses on collecting movie ratings from multiple participants, storing those ratings in a relational database, and then loading the data into R for inspection and basic analysis.
+
+This particular survey data was imported from a Google Forms CSV export. Each row represents one participant response, and each movie column contains a rating from 1 to 5. Blank entries indicate movies the participant did not rate, which will be treated as missing values (participants are my family and friends).
 
 ## Approach
 
-The project will follow a simple, code-focused workflow. First, movie 
-rating data will be collected using a Google Form survey based on approximately
-six currently popular movies. Participants will be asked to rate only the movies 
-they have seen on a 1–5 scale, which will naturally result in missing ratings when
-a movie has not been viewed.The collected data will be stored in a PostgreSQL database 
-using a normalized relational design with separate tables for users, movies, and ratings.
-Only observed ratings will be inserted into the ratings table, allowing missing values
-to be represented implicitly.The data will be loaded from the SQL database into R as a 
-dataframe for inspection and basic analysis. Summary statistics such as rating counts 
-and average ratings will be computed, with missing values handled explicitly in R. 
-All SQL and R code used in this workflow will be included in a public GitHub repository to support reproducibility.
+The project will follow a simple, code-focused workflow. First, movie rating data will be collected using a Google Form survey based on approximately six currently popular movies. Participants will be asked to rate only the movies they have seen on a 1–4 scale, which will naturally result in missing ratings when a movie has not been viewed.The collected data will be stored in a PostgreSQL database using a normalized relational design with separate tables for users, movies, and ratings. Only observed ratings will be inserted into the ratings table, allowing missing values to be represented implicitly.The data will be loaded from the SQL database into R as a dataframe for inspection and basic analysis. Summary statistics such as rating counts and average ratings will be computed, with missing values handled explicitly in R. All SQL and R code used in this workflow will be included in a public GitHub repository to support reproducibility.
+
+## Code Base
+
+```{r}
+library(tidyverse)
+ratings_raw <- read_csv("Movie Ratings Survey.csv")
+
+glimpse(ratings_raw)
+
+```
+
+```{r}
+# Make a cleaned copy with short, usable column names
+ratings_clean <- ratings_raw |>
+  rename(
+    godfather = `Please rate only the movies you’ve seen. Leave the rest blank!\n1 → Poor\n2 → Average\n3 →Good\n4 → Very good\n5→ Masterpiece\n [The Godfather]`,
+    casablanca = `Please rate only the movies you’ve seen. Leave the rest blank!\n1 → Poor\n2 → Average\n3 →Good\n4 → Very good\n5→ Masterpiece\n [Casablanca]`,
+    titanic = `Please rate only the movies you’ve seen. Leave the rest blank!\n1 → Poor\n2 → Average\n3 →Good\n4 → Very good\n5→ Masterpiece\n [Titanic]`,
+    forrest_gump = `Please rate only the movies you’ve seen. Leave the rest blank!\n1 → Poor\n2 → Average\n3 →Good\n4 → Very good\n5→ Masterpiece\n [Forrest Gump]`,
+    sound_of_music = `Please rate only the movies you’ve seen. Leave the rest blank!\n1 → Poor\n2 → Average\n3 →Good\n4 → Very good\n5→ Masterpiece\n [The Sound of Music]`,
+    gone_with_the_wind = `Please rate only the movies you’ve seen. Leave the rest blank!\n1 → Poor\n2 → Average\n3 →Good\n4 → Very good\n5→ Masterpiece\n [Gone with the Wind]`
+  )
+
+# Confirm the rename worked
+glimpse(ratings_clean)
+```
+
+Preparing for SQL
+
+```{r}
+# Assign a unique ID to each survey respondent
+ratings_with_id <- ratings_clean |>
+  mutate(user_id = row_number())
+
+# Reshape movie ratings into long format (one row = one rating)
+ratings_long <- ratings_with_id |>
+  select(
+    user_id,
+    godfather,
+    casablanca,
+    titanic,
+    forrest_gump,
+    sound_of_music,
+    gone_with_the_wind
+  ) |>
+  pivot_longer(
+    cols = -user_id,
+    names_to = "movie",
+    values_to = "rating"
+  ) |>
+  filter(!is.na(rating))   # Remove missing ratings
+
+# Inspect the SQL-ready ratings table
+glimpse(ratings_long)
+
+
+```
+
+```{r}
+# Create ratings table using movie titles directly
+ratings <- ratings_long |>
+  mutate(
+    movie = case_when(
+      movie == "godfather" ~ "The Godfather",
+      movie == "casablanca" ~ "Casablanca",
+      movie == "titanic" ~ "Titanic",
+      movie == "forrest_gump" ~ "Forrest Gump",
+      movie == "sound_of_music" ~ "The Sound of Music",
+      movie == "gone_with_the_wind" ~ "Gone with the Wind"
+    )
+  ) |>
+  select(user_id, movie, rating) |>
+  arrange(user_id, movie)
+
+glimpse(ratings)
+# Plain text table preview (psql-style look)
+print(ratings |> head(3), n = 3, width = Inf)
+
+```
+
+Exporting the rating data to CSV
+
+```{r}
+dir.create("data/sql_load", recursive = TRUE, showWarnings = FALSE)
+write_csv(ratings, "data/sql_load/ratings.csv")
+
+```
+
+Creating the SQL table(in psql)
+
+The cleaned ratings data was exported from R as a CSV file and loaded into a PostgreSQL database using `psql`. A `ratings` table was created to store user IDs, movie titles, and ratings. SQL was then used to verify the data load and compute summary statistics such as average ratings per movie. All SQL commands used for table creation, data loading, and analysis are included in the GitHub repository.
