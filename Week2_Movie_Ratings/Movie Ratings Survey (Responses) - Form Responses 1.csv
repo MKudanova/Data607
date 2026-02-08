@@ -29,16 +29,16 @@ Timestamp,"Please rate only the movies you’ve seen. Leave the rest blank!
 3 → Very good
 4 → Masterpiece
  [Gone with the Wind]"
-2/8/2026 14:33:29,Column 4,Column 3,Column 2,Column 3,Column 2,Column 2
-2/8/2026 14:34:19,Column 3,Column 3,Column 2,Column 3,Column 2,Column 2
-2/8/2026 14:34:35,Column 4,Column 3,Column 3,Column 3,Column 3,Column 3
-2/8/2026 14:34:36,Column 2,Column 1,Column 1,Column 2,Column 2,Column 3
-2/8/2026 14:34:47,Column 1,Column 1,Column 1,Column 1,Column 1,Column 1
-2/8/2026 14:34:58,Column 3,Column 3,Column 3,Column 2,Column 2,Column 3
-2/8/2026 14:36:22,Column 4,Column 3,Column 1,Column 2,Column 3,Column 2
-2/8/2026 14:36:40,Column 3,Column 3,Column 4,Column 3,,Column 1
-2/8/2026 14:36:56,Column 2,Column 2,Column 1,Column 3,Column 3,Column 3
-2/8/2026 14:37:08,,,Column 1,Column 3,,
+2/8/2026 14:33:29,4,3,2,3,2,2
+2/8/2026 14:34:19,3,3,2,3,2,2
+2/8/2026 14:34:35,4,3,3,3,3,3
+2/8/2026 14:34:36,2,1,1,2,2,3
+2/8/2026 14:34:47,1,1,1,1,1,1
+2/8/2026 14:34:58,3,3,3,2,2,3
+2/8/2026 14:36:22,4,3,1,2,3,2
+2/8/2026 14:36:40,3,3,4,3,,1
+2/8/2026 14:36:56,,2,1,3,3,3
+2/8/2026 14:37:08,,,1,3,,
 2/8/2026 14:40:08,4,3,1,3,2,2
 2/8/2026 14:40:49,4,,3,3,,
 2/8/2026 14:40:50,1,1,1,3,2,1
@@ -50,4 +50,5 @@ Timestamp,"Please rate only the movies you’ve seen. Leave the rest blank!
 2/8/2026 14:43:25,4,3,1,2,,
 2/8/2026 14:43:38,4,,1,,,
 2/8/2026 14:43:51,3,3,2,4,,
+
 2/8/2026 14:44:04,2,2,4,2,2,2
