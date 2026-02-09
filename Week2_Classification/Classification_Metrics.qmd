@@ -6,23 +6,102 @@ editor: visual
 ---
 
 ## Introduction
-This assignment focuses on evaluating the performance of a binary 
-classification model. Using predicted probabilities and known class 
-labels, the goal is to understand how different decision thresholds 
-influence model errors and performance metrics.
 
+This assignment focuses on evaluating the performance of a binary classification model. Using predicted probabilities and known class labels, the goal is to understand how different decision thresholds influence model errors and performance metrics.
 
 Classification metrics
 
 ## Approach
 
-To evaluate the performance of a binary classification model, I will work
-with a provided dataset containing model-predicted probabilities and true class labels.
-My step-by-step plan involves first examining the distribution of the actual class labels to establish
-a baseline using the null error rate. I will then assess how converting predicted probabilities into 
-class labels at different decision thresholds affects classification outcomes. Using these results, 
-I will construct confusion matrices and derive performance metrics to understand how threshold choice 
-influences the balance between different types of classification errors.
-
+To evaluate the performance of a binary classification model, I will work with a provided dataset containing model-predicted probabilities and true class labels. My step-by-step plan involves first examining the distribution of the actual class labels to establish a baseline using the null error rate. I will then assess how converting predicted probabilities into class labels at different decision thresholds affects classification outcomes. Using these results, I will construct confusion matrices and derive performance metrics to understand how threshold choice influences the balance between different types of classification errors.
 
 ## Base Code
+
+```{r}
+library(tidyverse)
+
+url <- "https://raw.githubusercontent.com/acatlin/data/refs/heads/master/penguin_predictions.csv"
+penguins <- read_csv(url)
+
+# 1) Convert actual labels to 0/1
+penguins <- penguins %>%
+  mutate(actual = ifelse(sex == "female", 1, 0))
+
+# 2) Null error rate
+class_counts <- penguins %>% count(actual)
+
+majority_n <- max(class_counts$n)
+total_n <- sum(class_counts$n)
+
+null_error_rate <- 1 - (majority_n / total_n)
+null_error_rate
+
+# Plot actual class distribution
+penguins %>%
+  ggplot(aes(x = sex)) +
+  geom_bar() +
+  labs(title = "Actual class distribution", x = "sex", y = "count")
+
+# 3) Helper: counts for confusion matrix at a threshold
+confusion_counts <- function(df, threshold) {
+  pred <- ifelse(df$.pred_female > threshold, 1, 0)
+  actual <- df$actual
+
+  TP <- sum(pred == 1 & actual == 1)
+  FP <- sum(pred == 1 & actual == 0)
+  TN <- sum(pred == 0 & actual == 0)
+  FN <- sum(pred == 0 & actual == 1)
+
+  tibble(threshold = threshold, TP = TP, FP = FP, TN = TN, FN = FN)
+}
+
+# 4) Helper: turn counts into a 2x2 confusion matrix
+make_cm <- function(row) {
+  matrix(
+    c(row$TN, row$FP,
+      row$FN, row$TP),
+    nrow = 2, byrow = TRUE,
+    dimnames = list(Actual = c("0","1"), Predicted = c("0","1"))
+  )
+}
+
+# 5) Compute confusion matrices for 0.2 / 0.5 / 0.8
+thresholds <- c(0.2, 0.5, 0.8)
+counts_all <- map_dfr(thresholds, ~ confusion_counts(penguins, .x))
+
+counts_all
+
+for (t in thresholds) {
+  cat("\n--- Threshold =", t, "---\n")
+  row <- counts_all %>% filter(threshold == t)
+  print(make_cm(row))
+}
+
+# 6) Metrics from counts
+metrics_from_counts <- function(row) {
+  TP <- row$TP; FP <- row$FP; TN <- row$TN; FN <- row$FN
+  total <- TP + FP + TN + FN
+
+  accuracy <- (TP + TN) / total
+  precision <- TP / (TP + FP)
+  recall <- TP / (TP + FN)
+  f1 <- 2 * precision * recall / (precision + recall)
+
+  tibble(threshold = row$threshold,
+         accuracy = accuracy, precision = precision, recall = recall, f1 = f1)
+}
+
+metrics_table <- counts_all %>%
+  group_by(threshold) %>%
+  group_modify(~ metrics_from_counts(.x)) %>%
+  ungroup() %>%
+  mutate(across(c(accuracy, precision, recall, f1), ~ round(.x, 3)))
+
+metrics_table
+
+
+```
+
+### Conclusion
+
+This analysis demonstrates that classification model performance depends strongly on the chosen decision threshold. By examining the null error rate, confusion matrices, and performance metrics, it becomes clear that accuracy alone is not sufficient to evaluate a model. Lower thresholds increase recall by identifying more positive cases, while higher thresholds improve precision by reducing false positives. As shown in this assignment, there is no single “best” threshold; instead, the appropriate threshold should be selected based on the specific costs and priorities of different types of classification errors.
