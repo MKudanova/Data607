@@ -1,0 +1,32 @@
+---
+title: "Global Baseline Estimate"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+The goal of this assignment is to implement a Global Baseline Estimate recommendation system in R using the movie rating data collected earlier in the course. The Global Baseline Estimate is a non-personalized recommender approach that predicts ratings based on the overall average rating, along with systematic deviations associated with individual users and individual movies.
+
+Using the provided survey dataset ([Movie Ratings XLSX](https://brightspace.cuny.edu/content/enforced/1154240-SPS01_DATA_607_1262_1_32167/MovieRatings.xlsx?ou=1154240)), I will construct a reproducible workflow that calculates these components and generates predicted ratings. This implementation serves as a foundational benchmark model that can be compared to more advanced personalized recommendation techniques in future work.
+
+## Approach
+
+To implement the Global Baseline Estimate recommender system, I will begin by preparing the movie ratings dataset in a tidy, structured format suitable for analysis in R. If necessary, I will reshape the data so that each row represents a single user–movie rating pair. This ensures the dataset follows a consistent rectangular structure and supports grouped calculations.
+
+Next, I will compute the overall mean rating across all observations. This value serves as the global baseline estimate. From there, I will calculate user-specific bias terms (how each user tends to rate relative to the global average) and movie-specific bias terms (how each movie tends to deviate from the global average). These components will be combined to generate predicted ratings for each user–movie pair.
+
+After generating predicted values, I will review the results to confirm that predictions are logically consistent and reflect the structure of the algorithm described in the provided implementation spreadsheet. I will also validate that missing ratings are handled appropriately and that calculations are reproducible.
+
+## Anticipated Data Challenges
+
+The dataset may contain missing ratings that must be handled carefully.
+
+I might need to perform data reformatting.
+
+Users with very few ratings may produce unstable bias estimates.
+
+Ensuring that bias calculations are performed correctly without data leakage or double counting.
+
+I will address these challenges through careful data inspection, validation checks, and step-by-step calculation of each model component.
