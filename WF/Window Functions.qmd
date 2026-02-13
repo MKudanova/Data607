@@ -7,7 +7,10 @@ editor: visual
 
 ## Introduction
 
-The goal of this assignment is to create a dataset using publicly available cryptocurrency price data and apply window functions to compute cumulative and rolling averages. I will obtain daily historical price data for two cryptocurrencies from a public data source such as CoinGecko or Yahoo Finance for the period September 2024 through February 2026.
+The goal of this assignment is to create a dataset using publicly available cryptocurrency 
+price data and apply window functions to compute cumulative and rolling averages.
+I will obtain daily historical price data for two cryptocurrencies from a public 
+data source such as CoinGecko or Yahoo Finance for the period September 2024 through February 2026.
 
 ## Approach
 
