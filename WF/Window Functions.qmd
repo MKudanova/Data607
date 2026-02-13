@@ -14,12 +14,27 @@ data source such as CoinGecko or Yahoo Finance for the period September 2024 thr
 
 ## Approach
 
-To complete this assignment, I will first select two cryptocurrencies and define the time range from September 2024 through February 2026, most likely using Bitcoin and Ethereum. I will obtain daily historical price data from a publicly available source such as CoinGecko or Yahoo Finance. Once acquired, I will organize the data into a structured time series format where each row represents one cryptocurrency on one date, including a properly formatted date column and a numeric closing price variable.
+To complete this assignment, I will first select two cryptocurrencies and define the time range 
+from September 2024 through February 2026, most likely using Bitcoin and Ethereum.
+I will obtain daily historical price data from a publicly available source such as CoinGecko or 
+Yahoo Finance. Once acquired, I will organize the data into a structured time series 
+format where each row represents one cryptocurrency on one date, including a properly formatted
+date column and a numeric closing price variable.
 
-After preparing the dataset, I will ensure that the data is sorted chronologically within each cryptocurrency and verify that there are no duplicate or improperly formatted observations. I will then apply window functions to calculate two measures for each cryptocurrency: a year-to-date (YTD) cumulative average that resets at the beginning of each calendar year, and a six-day rolling average that incorporates the current observation and the previous five days. Finally, I will review the results to confirm that calculations are performed independently for each cryptocurrency and behave as expected over time.
+After preparing the dataset, I will ensure that the data is sorted chronologically within each 
+cryptocurrency and verify that there are no duplicate or improperly formatted observations. 
+I will then apply window functions to calculate two measures for each cryptocurrency: 
+a year-to-date (YTD) cumulative average that resets at the beginning of each calendar year, 
+and a six-day rolling average that incorporates the current observation and the previous five days. 
+Finally, I will review the results to confirm that calculations are performed independently 
+for each cryptocurrency and behave as expected over time.
 
 ## Anticipated Challenges
 
-One challenge may be ensuring that the crypto price data is complete and properly formatted for the selected time period. The dataset must contain consistent daily observations with correctly formatted dates.
+One challenge may be ensuring that the crypto price data is complete and properly formatted for 
+the selected time period. The dataset must contain consistent daily observations with correctly formatted dates.
 
-Another challenge is making sure the data is properly sorted before applying window functions, since cumulative and rolling averages depend on correct chronological order. It will also be important to confirm that the year-to-date calculation resets at the beginning of each year and that calculations are performed separately for each cryptocurrency.
+Another challenge is making sure the data is properly sorted before applying window functions,
+since cumulative and rolling averages depend on correct chronological order. It will also be 
+important to confirm that the year-to-date calculation resets at the beginning of each year and 
+that calculations are performed separately for each cryptocurrency.
