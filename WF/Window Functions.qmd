@@ -7,34 +7,184 @@ editor: visual
 
 ## Introduction
 
-The goal of this assignment is to create a dataset using publicly available cryptocurrency 
-price data and apply window functions to compute cumulative and rolling averages.
-I will obtain daily historical price data for two cryptocurrencies from a public 
-data source such as CoinGecko or Yahoo Finance for the period September 2024 through February 2026.
+The goal of this assignment is to create a dataset using publicly available cryptocurrency price data and apply window functions to compute cumulative and rolling averages. I will obtain daily historical price data for two cryptocurrencies from a public data source such as CoinGecko or Yahoo Finance for the period September 2024 through February 2026.
 
 ## Approach
 
-To complete this assignment, I will first select two cryptocurrencies and define the time range 
-from September 2024 through February 2026, most likely using Bitcoin and Ethereum.
-I will obtain daily historical price data from a publicly available source such as CoinGecko or 
-Yahoo Finance. Once acquired, I will organize the data into a structured time series 
-format where each row represents one cryptocurrency on one date, including a properly formatted
-date column and a numeric closing price variable.
+To complete this assignment, I will first select two cryptocurrencies and define the time range from September 2024 through February 2026, most likely using Bitcoin and Ethereum. I will obtain daily historical price data from a publicly available source such as CoinGecko or Yahoo Finance. Once acquired, I will organize the data into a structured time series format where each row represents one cryptocurrency on one date, including a properly formatted date column and a numeric closing price variable.
 
-After preparing the dataset, I will ensure that the data is sorted chronologically within each 
-cryptocurrency and verify that there are no duplicate or improperly formatted observations. 
-I will then apply window functions to calculate two measures for each cryptocurrency: 
-a year-to-date (YTD) cumulative average that resets at the beginning of each calendar year, 
-and a six-day rolling average that incorporates the current observation and the previous five days. 
-Finally, I will review the results to confirm that calculations are performed independently 
-for each cryptocurrency and behave as expected over time.
+After preparing the dataset, I will ensure that the data is sorted chronologically within each cryptocurrency and verify that there are no duplicate or improperly formatted observations. I will then apply window functions to calculate two measures for each cryptocurrency: a year-to-date (YTD) cumulative average that resets at the beginning of each calendar year, and a six-day rolling average that incorporates the current observation and the previous five days. Finally, I will review the results to confirm that calculations are performed independently for each cryptocurrency and behave as expected over time.
 
 ## Anticipated Challenges
 
-One challenge may be ensuring that the crypto price data is complete and properly formatted for 
-the selected time period. The dataset must contain consistent daily observations with correctly formatted dates.
+One challenge may be ensuring that the crypto price data is complete and properly formatted for the selected time period. The dataset must contain consistent daily observations with correctly formatted dates.
 
-Another challenge is making sure the data is properly sorted before applying window functions,
-since cumulative and rolling averages depend on correct chronological order. It will also be 
-important to confirm that the year-to-date calculation resets at the beginning of each year and 
-that calculations are performed separately for each cryptocurrency.
+Another challenge is making sure the data is properly sorted before applying window functions, since cumulative and rolling averages depend on correct chronological order. It will also be important to confirm that the year-to-date calculation resets at the beginning of each year and that calculations are performed separately for each cryptocurrency.
+
+## Code Base
+
+```{r}
+# I extract daily historical cryptocurrency price data from Yahoo Finance
+# using the quantmod package. The getSymbols() function connects to Yahoo
+# Finance and downloads structured time-series data (Open, High, Low, Close, Volume)
+# for the selected instruments. In this assignment, I retrieve Bitcoin (BTC-USD)
+# and Ethereum (ETH-USD) daily data for the period September 1, 2024 through
+# February 2026. This method ensures reproducibility and consistent time-series formatting.
+
+library(quantmod)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(slider)
+library(tibble)
+
+start_date <- as.Date("2024-09-01")
+end_date   <- as.Date("2026-02-14")
+
+getSymbols(c("BTC-USD", "ETH-USD"),
+           src = "yahoo",
+           from = start_date,
+           to = end_date,
+           auto.assign = TRUE)
+BTC_USD <- `BTC-USD`
+ETH_USD <- `ETH-USD`
+class(BTC_USD)
+head(BTC_USD)
+
+```
+
+```{r}
+# Convert xts time-series objects into a tidy data frame:
+# one row per (date, cryptocurrency), with a numeric closing price.
+
+btc <- tibble(
+  date  = as.Date(index(BTC_USD)),
+  item  = "BTC-USD",
+  close = as.numeric(Cl(BTC_USD))
+)
+
+eth <- tibble(
+  date  = as.Date(index(ETH_USD)),
+  item  = "ETH-USD",
+  close = as.numeric(Cl(ETH_USD))
+)
+
+prices <- bind_rows(btc, eth) %>%
+  arrange(item, date)
+
+head(prices)
+view(prices)
+
+```
+
+```{r}
+# Data Transformation and Window Function Calculations
+#
+# After preparing the tidy dataset containing daily closing prices
+# for Bitcoin and Ethereum, I apply window functions to compute
+# two time-series measures for each cryptocurrency.
+#
+# First, I calculate a Year-To-Date (YTD) cumulative average.
+# This measure resets at the beginning of each calendar year and
+# represents the running average price within that year.
+# To ensure the reset behavior, I group the data by both
+# cryptocurrency (item) and calendar year, and arrange observations
+# chronologically before applying the cumulative mean function.
+#
+# Second, I calculate a six-day moving average.
+# This rolling statistic incorporates the current day's closing price
+# and the previous five days, producing a smoothed short-term trend.
+# The calculation is performed independently for each cryptocurrency
+# and ordered by date to preserve proper time-series structure.
+#
+# These operations implement window-based calculations that
+# partition the data by cryptocurrency and respect chronological order,
+# as described in the assignment approach.
+
+prices_w <- prices %>%
+  mutate(year = year(date)) %>%
+  group_by(item, year) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(ytd_avg = cummean(close)) %>%
+  ungroup() %>%
+  group_by(item) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(ma_6 = slide_dbl(close, mean, .before = 5, .complete = FALSE)) %>%
+  ungroup()
+
+head(prices_w, 10)
+
+
+```
+
+```{r}
+library(ggplot2)
+# Column Renaming for Clarity
+#
+# To improve interpretability and ensure that variable names are
+# self-explanatory, I rename several columns in the dataset.
+#
+# The original variable names (e.g., 'item', 'close', 'ma_6')
+# are concise but not immediately descriptive. For clarity:
+#
+# - 'item' is renamed to 'cryptocurrency' to clearly identify
+#   the asset being analyzed.
+# - 'close' is renamed to 'closing_price_usd' to explicitly indicate
+#   that the value represents the daily closing price in U.S. dollars.
+# - 'year' is renamed to 'calendar_year' to clarify that it refers
+#   to the year extracted from the date variable.
+# - 'ytd_avg' is renamed to 'ytd_cumulative_avg' to reflect that it
+#   represents a running average within each calendar year.
+# - 'ma_6' is renamed to 'six_day_moving_avg' to clearly describe
+#   the rolling six-day window calculation.
+#
+# These changes enhance readability
+
+prices_w <- prices_w %>%
+  rename(
+    cryptocurrency        = item,
+    closing_price_usd     = close,
+    calendar_year         = year,
+    ytd_cumulative_avg    = ytd_avg,
+    six_day_moving_avg    = ma_6
+  )
+
+head(prices_w)
+
+
+
+```
+
+```{r}
+# Visualization of Window Function Results
+#
+# To illustrate the effect of the rolling window calculation,
+# I plot the daily closing price alongside the six-day moving average.
+# The moving average smooths short-term volatility and highlights
+# underlying trends in the cryptocurrency price series.
+#
+# This visualization provides an intuitive demonstration of how
+# window functions operate over ordered time-series data without
+# collapsing the dataset.
+
+prices_w %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = closing_price_usd), alpha = 0.3) +
+  geom_line(aes(y = six_day_moving_avg), linewidth = 0.8) +
+  facet_wrap(~ cryptocurrency, scales = "free_y") +
+  labs(title = "Closing Price and 6-Day Moving Average",
+       x = "Date",
+       y = "Price (USD)") +
+  theme_minimal()
+
+```
+
+## Conclusion
+
+### Conclusion
+
+The dataset contains daily closing prices for Bitcoin and Ethereum along with two window-based measures. The year-to-date cumulative average was computed within each cryptocurrency and calendar year partition, ensuring that the running average resets at the beginning of each year. The six-day moving average was calculated using a rolling window that includes the current observation and the previous five days, ordered chronologically within each cryptocurrency. These calculations demonstrate the application of window functions to structured time-series data without collapsing the dataset.
+
+For clarity and interpretability, selected columns were renamed using descriptive variable names (e.g., `closing_price_usd`, `ytd_cumulative_avg`, and `six_day_moving_avg`).
+
+A visualization was produced to display the daily closing price alongside the six-day moving average, providing a graphical representation of the rolling window calculation over time. The plot indicates a pronounced upward price movement for both Bitcoin and Ethereum through mid-2025, followed by a comparatively sharp decline toward early 2026. The six-day moving average captures this pattern clearly by smoothing short-term volatility while reflecting the broader upward trend and subsequent steep downturn. As expected, the rolling average lags slightly during rapid price changes, particularly during the sharp decline, which is characteristic of moving window calculations.
