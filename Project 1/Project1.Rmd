@@ -1,0 +1,41 @@
+---
+title: "Project 1"
+author: "Madina Kudanova"
+date: "2026-02-17"
+output: html_document
+---
+
+##Introduction
+
+This project involves taking a structured chess tournament text file and transforming 
+it into a clean CSV dataset containing summarized player statistics.
+The workflow programmatically extracts relevant player information and 
+computes each player’s average opponent pre-tournament rating. The resulting 
+dataset is structured for reproducible analysis and potential database integration.
+
+##Approach
+
+For this project, I will develop an R Markdown workflow to extract and transform
+data from a structured chess tournament text file stored in the Project1 directory
+of my public GitHub repository. In order to generate the required CSV output, 
+I will first read the raw text file into R and examine its structure. 
+Because the file is formatted as a fixed-width cross table, I will 
+reconstruct each player’s complete record by combining the two lines that represent a single player.
+
+Next, I will extract the required fields for each player: name, state, total 
+points, and pre-tournament rating. I will parse opponent numbers from the round
+result columns on the first line and include only valid games (wins, losses, and draws) 
+in the calculation, excluding byes, unplayed rounds, and forfeit results (X).
+
+To compute the average pre-tournament rating of each player’s opponents, I
+will construct a lookup structure that maps player pairing numbers to their
+pre-tournament ratings. Using this mapping, I will retrieve the corresponding 
+ratings for each opponent and calculate the mean opponent rating based only on 
+games actually played. Finally, I will assemble the cleaned and computed data
+into a structured data frame and export the results as a CSV file containing the 
+required fields (Player Name, State, Total Points, Pre-Rating, and Average
+Opponent Pre-Rating), suitable for reproducible analysis and potential database integration.
+
+##Code Base
+
+##Comclusion
