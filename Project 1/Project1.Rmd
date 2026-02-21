@@ -7,7 +7,7 @@ output: html_document
 
 ##Introduction
 
-This project involves taking a structured chess tournament text file and transforming 
+This project involves taking a semi - structured chess tournament text file and transforming 
 it into a clean CSV dataset containing summarized player statistics.
 The workflow programmatically extracts relevant player information and 
 computes each player’s average opponent pre-tournament rating. The resulting 
@@ -37,5 +37,127 @@ required fields (Player Name, State, Total Points, Pre-Rating, and Average
 Opponent Pre-Rating), suitable for reproducible analysis and potential database integration.
 
 ##Code Base
+```{r}
+library(tidyverse)
+# Read the tournament text file from GitHub as raw text
+# Each element of 'txt' represents one line from the file
+
+url <- "https://raw.githubusercontent.com/MKudanova/Data607/main/Project%201/tournamentinfo.txt"
+txt <- read_lines(url)
+
+#quick sanity check: formatting, character, preview
+class(txt)
+length(txt)
+txt[1:5]
+```
+```{r}
+# Since the data file is not structured as a standard CSV or table,
+# I am working with semi-structured text.
+# Each player is represented by two different line types:
+#   -  A stat line that begins with a numeric pair number
+#   -  A detail line that begins with a two-letter state code
+#
+# The vertical bar "|" acts as a column separator within each line.
+# To distinguish between the two line types, I use pattern matching
+# with regular expressions (regex). This allows me to identify rows
+# based on their structural format rather than specific text values.
+#
+# The first pattern selects lines that start with a number followed by
+# a vertical bar, representing the main player rows.
+# The second pattern selects lines that start with a two-letter state code
+# followed by a vertical bar, representing the detail rows that contain
+# rating information.
+
+stat_rows <- txt[str_detect(txt, "^\\s*\\d+\\s*\\|")]
+detail_rows <- txt[str_detect(txt, "^\\s*[A-Z]{2}\\s*\\|")]
+
+# another sanity check point: there should be one main row and one detail row per player
+stopifnot(length(stat_rows) == length(detail_rows))
+# Splitting stat rows by the vertical bar "|" to separate fields
+stat_split <- str_split(stat_rows, "\\|")
+
+# Extract pair number, player name, and total points
+stat_df <- tibble(parts = stat_split) %>%
+  mutate(
+    PairNum     = as.integer(str_trim(map_chr(parts, 1))),
+    PlayerName  = str_trim(map_chr(parts, 2)),
+    TotalPoints = as.numeric(str_trim(map_chr(parts, 3)))
+  ) %>%
+  select(PairNum, PlayerName, TotalPoints)
+
+stat_df %>% slice(1)
+
+# Extract opponent pair numbers from round result fields
+stat_df <- tibble(parts = stat_split) %>%
+  mutate(
+    PairNum     = as.integer(str_trim(map_chr(parts, 1))),
+    PlayerName  = str_trim(map_chr(parts, 2)),
+    TotalPoints = as.numeric(str_trim(map_chr(parts, 3))),
+    
+    # Extract opponent numbers from columns 4–10
+    Opponents = map(parts, ~ str_extract_all(.x[4:10], "\\d+"))
+  ) %>%
+  select(PairNum, PlayerName, TotalPoints, Opponents)
+```
+```{r}
+# Convert opponent pair numbers to integers
+stat_df <- stat_df %>%
+  mutate(
+    Opponents = map(Opponents, as.integer)
+  )
+# Split detail rows and extract State + PreRating (number after "R:")
+detail_split <- str_split(detail_rows, "\\|")
+
+detail_df <- tibble(parts = detail_split) %>%
+  mutate(
+    State = str_trim(map_chr(parts, 1)),
+    PreRating = as.integer(str_extract(map_chr(parts, 2), "(?<=R:)\\s*\\d+"))
+  ) %>%
+  select(State, PreRating)
+
+detail_df %>% slice(1)
+```
+```{r}
+# Combine stat_df and detail_df
+players <- bind_cols(stat_df, detail_df)
+
+# Build lookup table (PairNum → PreRating)
+rating_lookup <- players %>% select(PairNum, PreRating)
+
+# Compute average opponent pre-rating
+final_df <- players %>%
+  unnest_longer(Opponents, values_to = "OppPairNum") %>%
+  left_join(rating_lookup, by = c("OppPairNum" = "PairNum"),
+            suffix = c("", "_opp")) %>%
+  group_by(PlayerName, State, TotalPoints, PreRating) %>%
+  summarise(
+    AvgOppPreRating = round(mean(PreRating_opp, na.rm = TRUE), 0),
+    .groups = "drop"
+  )
+    
+# another sanity check point
+final_df %>% filter(PlayerName == "GARY HUA")
+final_df %>% filter(PlayerName == "ASHWIN BALAJI")
+players %>% filter(PlayerName == "ASHWIN BALAJI") %>% pull(Opponents)
+players %>% filter(PairNum == 55) %>% select(PlayerName, PreRating)
+
+# Write CSV
+write_csv(final_df, "chess_players.csv")   
+getwd()
+  
+```
+
 
 ##Comclusion
+
+In this project, I transformed a semi-structured chess tournament crosstable 
+into a structured dataset suitable for analysis in R. Using regular expressions
+and controlled parsing logic, I extracted player information, opponent identifiers, 
+and pre-tournament ratings.
+
+I then calculated each player’s average opponent pre-rating by joining 
+opponent IDs to their corresponding ratings and excluding non-played rounds 
+from the denominator. Two hand-calculated test cases—one player who completed
+all rounds and one who played fewer than all rounds—were used to verify the
+correctness of the computation. The manually computed averages matched the 
+programmatic results, confirming the accuracy of the implementation. 
