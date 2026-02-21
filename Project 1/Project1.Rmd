@@ -5,18 +5,18 @@ date: "2026-02-17"
 output: html_document
 ---
 
-##Introduction
+## Introduction
 
-This project involves taking a semi - structured chess tournament text file and transforming 
+This project involves taking a semi-structured chess tournament text file and transforming 
 it into a clean CSV dataset containing summarized player statistics.
 The workflow programmatically extracts relevant player information and 
 computes each player’s average opponent pre-tournament rating. The resulting 
 dataset is structured for reproducible analysis and potential database integration.
 
-##Approach
+## Approach
 
 For this project, I will develop an R Markdown workflow to extract and transform
-data from a structured chess tournament text file stored in the Project1 directory
+data from a semi-structured chess tournament text file stored in the Project1 directory
 of my public GitHub repository. In order to generate the required CSV output, 
 I will first read the raw text file into R and examine its structure. 
 Because the file is formatted as a fixed-width cross table, I will 
@@ -36,7 +36,7 @@ into a structured data frame and export the results as a CSV file containing the
 required fields (Player Name, State, Total Points, Pre-Rating, and Average
 Opponent Pre-Rating), suitable for reproducible analysis and potential database integration.
 
-##Code Base
+## Code Base
 ```{r}
 library(tidyverse)
 # Read the tournament text file from GitHub as raw text
@@ -45,7 +45,7 @@ library(tidyverse)
 url <- "https://raw.githubusercontent.com/MKudanova/Data607/main/Project%201/tournamentinfo.txt"
 txt <- read_lines(url)
 
-#quick sanity check: formatting, character, preview
+# Quick sanity check: formatting, character, preview
 class(txt)
 length(txt)
 txt[1:5]
@@ -71,7 +71,7 @@ txt[1:5]
 stat_rows <- txt[str_detect(txt, "^\\s*\\d+\\s*\\|")]
 detail_rows <- txt[str_detect(txt, "^\\s*[A-Z]{2}\\s*\\|")]
 
-# another sanity check point: there should be one main row and one detail row per player
+# Another sanity check point: there should be one main row and one detail row per player
 stopifnot(length(stat_rows) == length(detail_rows))
 # Splitting stat rows by the vertical bar "|" to separate fields
 stat_split <- str_split(stat_rows, "\\|")
@@ -150,7 +150,7 @@ final_df <- players %>%
   # 2) If tied, higher opponent average first
   arrange(desc(TotalPoints), desc(AvgOppPreRating))
     
-# another sanity check point
+# Another sanity check point
 final_df %>% filter(PlayerName == "GARY HUA")
 final_df %>% filter(PlayerName == "ASHWIN BALAJI")
 players %>% filter(PlayerName == "ASHWIN BALAJI") %>% pull(Opponents)
@@ -161,9 +161,19 @@ write_csv(final_df, "chess_players.csv")
 getwd()
   
 ```
+## Final Result!
+```{r}
+# CSV output with the required fields:
+# PlayerName, State, TotalPoints, PreRating, AvgOppPreRating
 
+csv_url <- "https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/Project%201/chess_players.csv"
 
-##Comclusion
+csv_preview <- read_csv(csv_url)
+
+head(csv_preview, 10)
+```
+
+## Conclusion
 
 In this project, I transformed a semi-structured chess tournament crosstable 
 into a structured dataset suitable for analysis in R. Using regular expressions 
@@ -172,11 +182,10 @@ and pre-tournament ratings.
 
 I then calculated each player’s average opponent pre-rating by joining opponent
 IDs to their corresponding ratings and excluding non-played rounds from the 
-denominator. Two hand-calculated test cases—one player who completed all rounds 
-and one who played fewer than all rounds—were used to verify the correctness of 
+denominator. Two hand calculated test cases one player who completed all rounds 
+and one who played fewer than all rounds were used to verify the correctness of 
 the computation. The manually computed averages matched the programmatic results, 
 confirming the accuracy of the implementation.
 
 Finally, the dataset was explicitly ordered by total points and average opponent
-pre-rating to reflect tournament performance rather than alphabetical ordering, 
-ensuring the output aligns with typical standings interpretation.
+pre-rating to reflect tournament performance rather than alphabetical ordering.
