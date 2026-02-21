@@ -126,14 +126,29 @@ rating_lookup <- players %>% select(PairNum, PreRating)
 
 # Compute average opponent pre-rating
 final_df <- players %>%
+  
+  # Expand each player's opponent list so each row represents one opponent matchup
   unnest_longer(Opponents, values_to = "OppPairNum") %>%
-  left_join(rating_lookup, by = c("OppPairNum" = "PairNum"),
+  
+  # Join opponent pairing numbers to their corresponding pre-tournament ratings
+  left_join(rating_lookup,
+            by = c("OppPairNum" = "PairNum"),
             suffix = c("", "_opp")) %>%
-  group_by(PlayerName, State, TotalPoints, PreRating) %>%
+  
+  # Group back to one row per player (PairNum is safest unique identifier)
+  group_by(PairNum, PlayerName, State, TotalPoints, PreRating) %>%
+  
+  # Compute the average opponent pre-rating
+  # na.rm = TRUE ensures byes/unplayed rounds are excluded
   summarise(
     AvgOppPreRating = round(mean(PreRating_opp, na.rm = TRUE), 0),
     .groups = "drop"
-  )
+  ) %>%
+  
+  # Sort by tournament performance:
+  # 1) Highest TotalPoints first
+  # 2) If tied, higher opponent average first
+  arrange(desc(TotalPoints), desc(AvgOppPreRating))
     
 # another sanity check point
 final_df %>% filter(PlayerName == "GARY HUA")
@@ -149,6 +164,7 @@ getwd()
 
 
 ##Comclusion
+
 
 In this project, I transformed a semi-structured chess tournament crosstable 
 into a structured dataset suitable for analysis in R. Using regular expressions
