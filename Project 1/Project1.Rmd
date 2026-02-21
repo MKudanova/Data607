@@ -165,15 +165,8 @@ getwd()
 
 ##Comclusion
 
+In this project, I transformed a semi-structured chess tournament crosstable into a structured dataset suitable for analysis in R. Using regular expressions and controlled parsing logic, I extracted player information, opponent identifiers, and pre-tournament ratings.
 
-In this project, I transformed a semi-structured chess tournament crosstable 
-into a structured dataset suitable for analysis in R. Using regular expressions
-and controlled parsing logic, I extracted player information, opponent identifiers, 
-and pre-tournament ratings.
+I then calculated each player’s average opponent pre-rating by joining opponent IDs to their corresponding ratings and excluding non-played rounds from the denominator. Two hand-calculated test cases—one player who completed all rounds and one who played fewer than all rounds—were used to verify the correctness of the computation. The manually computed averages matched the programmatic results, confirming the accuracy of the implementation.
 
-I then calculated each player’s average opponent pre-rating by joining 
-opponent IDs to their corresponding ratings and excluding non-played rounds 
-from the denominator. Two hand-calculated test cases—one player who completed
-all rounds and one who played fewer than all rounds—were used to verify the
-correctness of the computation. The manually computed averages matched the 
-programmatic results, confirming the accuracy of the implementation. 
+Finally, the dataset was explicitly ordered by total points and average opponent pre-rating to reflect tournament performance rather than alphabetical ordering, ensuring the output aligns with typical standings interpretation.
