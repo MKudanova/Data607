@@ -7,11 +7,17 @@ editor: visual
 
 ## Introduction
 
-The purpose of this assignment is to evaluate player performance in the Project 1 chess tournament using the Elo rating model. Based on the rating differences between each player and their opponents, the goal is to calculate each player’s expected tournament score and compare it to their actual score. The assignment then requires identifying the five players who most overperformed and the five who most underperformed relative to Elo expectations.
+The purpose of this assignment is to evaluate player performance in the Project 1 chess 
+tournament using the Elo rating model. Based on the rating differences between each player 
+and their opponents, the goal is to calculate each player’s expected tournament score and 
+compare it to their actual score. The assignment then requires identifying the five players 
+who most overperformed and the five who most underperformed relative to Elo expectations.
 
 ## Approach
 
-My approach to this assignment is to first use the pre-tournament ratings from the Project 1 dataset, along with the list of opponents each player faced. Since the Elo expected score depends only on rating differences, these pre-ratings are sufficient for the calculation.
+My approach to this assignment is to first use the pre-tournament ratings from the Project 1 dataset,
+along with the list of opponents each player faced. Since the Elo expected score depends only on 
+rating differences, these pre-ratings are sufficient for the calculation.
 
 For each game, I compute the expected score using the standard Elo formula:
 
@@ -19,9 +25,12 @@ For each game, I compute the expected score using the standard Elo formula:
 
 This formula follows the standard Elo rating model (Elo, 1978).
 
-Next, I sum the expected scores across all games to obtain each player’s total expected tournament score. All calculations use pre-tournament ratings only, and ratings are not updated between rounds.
+Next, I sum the expected scores across all games to obtain each player’s total expected tournament score. 
+All calculations use pre-tournament ratings only, and ratings are not updated between rounds.
 
-Finally, I calculate the performance difference by subtracting each player’s expected score from their actual tournament score. Players are then ranked based on this difference to identify the five largest overperformers and the five largest underperformers relative to Elo expectations.
+Finally, I calculate the performance difference by subtracting each player’s expected score from their 
+actual tournament score. Players are then ranked based on this difference to identify the five largest
+overperformers and the five largest underperformers relative to Elo expectations.
 
 ## Code Base
 
