@@ -1,0 +1,20 @@
+---
+title: "5A Airline Delays"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This assignment analyzes arrival delay data for two airlines across five cities. The data is originally presented in a wide summary format, so it must first be recreated and transformed into a tidy structure in R. Once properly structured, delay rates will be calculated using percentages rather than raw counts to allow for meaningful comparison. The analysis will compare overall airline performance as well as performance within each city, highlighting how aggregated results can differ from grouped comparisons.
+
+## Approach
+
+The first thing I will do for this assignment is recreate the airline arrival data from the provided chart as a CSV file in the same wide format shown in the source table. After that, I will read the CSV file into R and use `tidyr` and `dplyr` to transform the data from wide to long format so that each row represents one airline, one city, one status (on time or delayed), and its corresponding count.
+
+Next, I will calculate delay percentages by dividing the number of delayed flights by the total number of flights for each airline. I will first compare the overall delay percentages between the two airlines across all cities combined. Then, I will compare delay percentages city-by-city to examine differences within each destination.
+
+Finally, I will describe the discrepancy between the overall comparison and the city-level comparison, explaining how differences in the distribution of flights across cities can lead to different conclusions when the data is aggregated versus when it is grouped.
+
+## Code Base
