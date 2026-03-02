@@ -7,17 +7,11 @@ editor: visual
 
 ## Introduction
 
-The purpose of this assignment is to evaluate player performance in the Project 1 chess 
-tournament using the Elo rating model. Based on the rating differences between each player 
-and their opponents, the goal is to calculate each player’s expected tournament score and 
-compare it to their actual score. The assignment then requires identifying the five players 
-who most overperformed and the five who most underperformed relative to Elo expectations.
+The purpose of this assignment is to evaluate player performance in the Project 1 chess tournament using the Elo rating model. Based on the rating differences between each player and their opponents, the goal is to calculate each player’s expected tournament score and compare it to their actual score. The assignment then requires identifying the five players who most overperformed and the five who most underperformed relative to Elo expectations.
 
 ## Approach
 
-My approach to this assignment is to first use the pre-tournament ratings from the Project 1 dataset,
-along with the list of opponents each player faced. Since the Elo expected score depends only on 
-rating differences, these pre-ratings are sufficient for the calculation.
+My approach to this assignment is to first use the pre-tournament ratings from the Project 1 dataset, along with the list of opponents each player faced. Since the Elo expected score depends only on rating differences, these pre-ratings are sufficient for the calculation.
 
 For each game, I compute the expected score using the standard Elo formula:
 
@@ -25,13 +19,211 @@ For each game, I compute the expected score using the standard Elo formula:
 
 This formula follows the standard Elo rating model (Elo, 1978).
 
-Next, I sum the expected scores across all games to obtain each player’s total expected tournament score. 
-All calculations use pre-tournament ratings only, and ratings are not updated between rounds.
+Next, I sum the expected scores across all games to obtain each player’s total expected tournament score. All calculations use pre-tournament ratings only, and ratings are not updated between rounds.
 
-Finally, I calculate the performance difference by subtracting each player’s expected score from their 
-actual tournament score. Players are then ranked based on this difference to identify the five largest
-overperformers and the five largest underperformers relative to Elo expectations.
+Finally, I calculate the performance difference by subtracting each player’s expected score from their actual tournament score. Players are then ranked based on this difference to identify the five largest overperformers and the five largest underperformers relative to Elo expectations.
 
 ## Code Base
 
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+**Load and Prepare Project 1 Players Data**
+
+```{r}
+# Load the original tournament cross-table text file from Project 1.
+# This file contains the round-by-round opponent IDs needed to compute
+# expected scores using the Elo formula.
+players <- read_csv("https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/Project%201/chess_players.csv")
+glimpse(players)
+
+# Load tournament text file to extract opponent IDs per round
+tournament_raw <- read_lines("https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/Project%201/tournamentinfo.txt")
+
+length(tournament_raw)
+head(tournament_raw, 30)
+```
+
+```{r}
+# Display the first 20 lines of the tournament file to inspect its structure
+tournament_raw[1:20]
+```
+
+**Extract Opponent Data and Build Game-Level Dataset** (from .txt file)
+
+```{r}
+# Use regex to filter player lines and prepare for opponent ID extraction.
+# Keep only lines that begin with a player number
+player_lines <- tournament_raw %>%
+  str_subset("^\\s*\\d+\\s+\\|")
+
+length(player_lines)
+head(player_lines, 5)
+
+```
+
+```{r}
+# Build Game-Level Dataset from Tournament Text File
+# ------------------------------------------------------------
+
+# 1) Identify the starting line of each player record.
+# These are lines that begin with: whitespace + player number + |
+idx <- which(str_detect(tournament_raw, "^\\s*\\d+\\s+\\|"))
+
+# 2) Determine where each player record ends.
+# Each record ends right before the next player record begins.
+idx_end <- c(idx[-1] - 1, length(tournament_raw))
+
+# 3) Collapse all wrapped lines for each player into one full string.
+# Some player records span multiple physical lines in the text file.
+player_lines_full <- map2_chr(
+  idx,
+  idx_end,
+  ~ str_c(tournament_raw[.x:.y], collapse = " ")
+)
+
+# 4) Extract Player ID (PairNum) from the beginning of each full record.
+pair_ids <- str_extract(player_lines_full, "^\\s*\\d+") %>%
+  as.integer()
+
+# 5) Extract opponent IDs for each round.
+# Pattern explanation:
+#   \\|        → literal pipe symbol
+#   [WLD]      → match result letter (Win, Loss, Draw)
+#   \\s*       → optional spaces
+#   (\\d+)     → capture opponent number
+opponents_list <- str_match_all(
+  player_lines_full,
+  "\\|[WLD]\\s*(\\d+)"
+) %>%
+  map(~ .x[,2])   # Extract only the captured opponent number
+
+# 6) Count half-point byes ("H") for each player.
+# A bye has no opponent number, so we must account for it separately.
+h_df <- tibble(
+  PairNum = pair_ids,
+  h_rounds = str_count(player_lines_full, "\\|H\\s*\\|")
+)
+
+# 7) Create the game-level dataset.
+# Each row represents one actual game with an opponent.
+games <- tibble(
+  PairNum = pair_ids,
+  OppPairNum = opponents_list
+) %>%
+  unnest(OppPairNum) %>%
+  mutate(OppPairNum = as.integer(OppPairNum))
+
+# inSanity checks 
+nrow(games)                  # should be 408 (actual played games only)
+table(lengths(opponents_list))  # shows distribution of games per player
+```
+
+**Merge Player Ratings with Game Records**
+
+```{r}
+#Attach Ratings to Each Game
+
+# A small lookup table (clean and prevents accidental duplicate columns)
+ratings_lookup <- players %>%
+  select(PairNum, PlayerName, PreRating, TotalPoints)
+
+# Join player rating, then opponent rating
+games_rated <- games %>%
+  left_join(ratings_lookup %>% select(PairNum, PreRating),
+            by = "PairNum") %>%
+  rename(player_rating = PreRating) %>%
+  left_join(ratings_lookup %>% select(PairNum, PreRating),
+            by = c("OppPairNum" = "PairNum")) %>%
+  rename(opponent_rating = PreRating)
+
+head(games_rated)
+
+nrow(games_rated)                       # should be 408
+sum(is.na(games_rated$opponent_rating)) # should be 0
+```
+
+**Compute Elo Expected Score per Game**
+
+```{r}
+# Compute Expected Score Per Game
+
+games_expected <- games_rated %>%
+  mutate(expected_game =
+           1 / (1 + 10 ^ ((opponent_rating - player_rating) / 400)))
+```
+
+**Aggregate Expected Scores**
+
+```{r}
+# Aggregate Expected Scores
+
+expected_totals <- games_expected %>%
+  group_by(PairNum) %>%
+  summarise(expected_total = sum(expected_game), .groups = "drop")
+
+```
+
+**Compare Expected vs Actual and Rank**
+
+```{r}
+# ------------------------------------------------------------
+# Compute Total Expected Score per Player (from scratch)
+# ------------------------------------------------------------
+
+expected_totals <- games_expected %>%
+  group_by(PairNum) %>%
+  summarise(expected_total = sum(expected_game), .groups = "drop") %>%
+  mutate(PairNum = as.numeric(PairNum))
+
+# Add 0.5 expected points for each half-point bye ("H") round
+expected_totals <- expected_totals %>%
+  left_join(h_df %>% mutate(PairNum = as.numeric(PairNum)), by = "PairNum") %>%
+  mutate(
+    h_rounds = replace_na(h_rounds, 0),
+    expected_total = expected_total + 0.5 * h_rounds
+  ) %>%
+  select(PairNum, expected_total)
+
+# ------------------------------------------------------------
+# Compare Expected vs Actual and Rank Players
+# ------------------------------------------------------------
+
+results <- ratings_lookup %>%
+  mutate(PairNum = as.numeric(PairNum)) %>%
+  select(PairNum, PlayerName, TotalPoints) %>%
+  left_join(expected_totals, by = "PairNum") %>%
+  mutate(diff = TotalPoints - expected_total) %>%
+  arrange(desc(diff))
+
+
+top5_over  <- results %>% slice_head(n = 5) %>%
+  select(PairNum, PlayerName, TotalPoints, expected_total, diff)
+
+top5_under <- results %>% arrange(diff) %>% slice_head(n = 5) %>%
+  select(PairNum, PlayerName, TotalPoints, expected_total, diff)
+
+top5_over
+top5_under
+
+# ------------------------------------------------------------
+#  LAST Sanity Checks
+# ------------------------------------------------------------
+nrow(games)                              # 408 played games (byes not games)
+sum(is.na(results$expected_total))       # should be 0
+summary(results$expected_total)          # should be roughly 0–7
+table(h_df$h_rounds)                     # bye counts
+```
+
 ## Conclusion
+
+This analysis applied the classical Elo expected score model (Elo, 1978) to evaluate tournament performance relative to pre-tournament ratings. For each game, the expected score was computed using the standard Elo formula, and total expected scores were obtained by summing game-level expectations and adding 0.5 for each half-point bye. Comparing actual tournament points to expected totals allowed for a quantitative assessment of over- and underperformance.
+
+The results reveal substantial variation between projected and observed outcomes. The largest positive differentials exceeded +4 points. For example, Aditya Bajaj earned 6.0 points while his expected total was approximately 1.95, producing a differential of roughly +4.05. This indicates performance far above probabilistic expectation based on rating. Such a deviation suggests either that the player’s pre-tournament rating underestimated their true strength or that they experienced exceptional tournament form.
+
+Conversely, several higher-rated players underperformed relative to expectation. For instance, players with expected totals above 6 points in some cases scored closer to 3–3.5 points, producing negative differentials approaching −3 points. These outcomes demonstrate that Elo ratings, while predictive on average, do not guarantee performance in short tournaments.
+
+The distribution of expected totals ranged from approximately 0.04 to 6.28, reflecting the rating hierarchy within the field. Higher-rated players were statistically projected to earn most of the available points, while lower-rated players were projected to score substantially fewer. The observed deviations from expectation illustrate the probabilistic nature of the Elo system: ratings provide expected values over repeated play, but individual tournament outcomes can vary meaningfully from those projections.
+
+Overall, the analysis demonstrates how the Elo framework can quantify performance relative to expectation and identify players whose results diverged most significantly from rating-based predictions. While some deviations may reflect short-term variance, large differentials may also signal rating miscalibration or rapid changes in player strength.
