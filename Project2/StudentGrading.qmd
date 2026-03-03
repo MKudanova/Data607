@@ -1,0 +1,14 @@
+---
+title: "Student Grading"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+## Approach
+
+## Base Code
+
+## Conclusion
