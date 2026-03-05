@@ -1,0 +1,39 @@
+---
+title: "Project2 Approach"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Approach
+
+All three datasets go through the same core pipeline. Each raw CSV is loaded into R in its original wide format, cleaned to fix inconsistent values and formatting issues, reshaped from wide to long using the pivot_longer() function from the tidyr package, and renamed to follow a consistent snake_case convention using the rename_with(tolower) function from dplyr. Missing values are handled with documented decisions rather than silent drops. All analysis runs on the tidy dataset only, never on the raw input. Visualizations are built with ggplot2 and all transformations use tidyr and dplyr.
+
+**Dataset 1: Uncleaned Laptop Price Dataset**
+
+Source: Kaggle, uploaded by Ehtisham Sadiq
+Link: <https://www.kaggle.com/datasets/ehtishamsadiq/uncleaned-laptop-price-dataset>
+
+This dataset has 1,303 laptop models with specs like CPU, RAM, storage, GPU, screen resolution, OS, weight, and price. The core issue is that the dataset is untidy. Most columns contain mixed values that combine multiple pieces of information into a single field. RAM is stored as "8GB" instead of just 8, the CPU column packs brand, model, and clock speed into one string, and Memory blends storage size with storage type. The stringr package is used to extract the numeric values and separate the meaningful parts into their own columns. Inconsistent categorical labels, like OS naming variations, get standardized, missing values are documented and addressed, and then the cleaned specification columns are reshaped into long format using the pivot_longer() function.
+
+The analysis looks at which laptop types offer the best value for the price, comparing RAM and storage relative to cost, with laptop type as the main grouping variable rather than brand, since type says more about what you're actually getting.
+
+**Dataset 2: Student Performance & Behavior Dataset**
+
+Source: Kaggle, uploaded by Mahmoud Elhemaly
+Link: <https://www.kaggle.com/datasets/mahmoudelhemaly/students-grading-dataset>
+
+This dataset covers 5,000 students, each with a unique Student_ID, across 23 columns that include midterm and final scores, assignments, quizzes, participation, projects, study hours, sleep, stress, and socioeconomic background. The six score columns all measure academic performance in different contexts, which is exactly what makes this dataset wide. Those six columns get collapsed into long format using the pivot_longer() function, creating an assessment_type and score pair per row. Contextual columns like stress level and sleep hours stay wide as background variables. Column names are normalized to snake_case, categorical variables are converted to factors, and missing values are handled with documented decisions.
+
+The analysis uses group_by() and summarize() functions from dplyr to compare average scores across socioeconomic groups, family income, internet access, and parental education, and calculates the average score per assessment type per student to see whether performance holds steady across all assessments or dips in certain areas. Results are visualized with grouped bar charts and scatter plots faceted by socioeconomic factors.
+
+**Dataset 3: Global Country Information Dataset 2023**
+
+Source: Kaggle, uploaded by Nidula Elgiriyewithana
+Link: <https://www.kaggle.com/datasets/nelgiriyewithana/countries-of-the-world-2023>
+
+This dataset has 195 rows (one per country) and 35 columns covering economic indicators like GDP and CPI, health metrics like life expectancy, infant mortality, and maternal mortality, and demographic statistics.
+
+Before any reshaping happens, the numeric columns stored as strings need cleaning. GDP comes in with dollar signs and commas, percentages still have % attached, and some column names have special characters and line breaks baked in. The stringr package handles the value cleaning, and columns are renamed manually to follow a consistent convention. Missing values, expected for smaller or less-documented countries, are addressed and documented rather than quietly dropped. Then the cleaned numeric columns are reshaped into long format using the pivot_longer() function.
+
+The analysis focuses on what predicts life expectancy across countries. Correlations are calculated between life expectancy and key indicators like GDP, infant mortality, physicians per thousand, and out-of-pocket health expenditure, and the strongest relationships are plotted as scatter plots. A regional grouped summary also checks whether geography plays a role on top of economic factors.
