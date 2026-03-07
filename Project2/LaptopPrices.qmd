@@ -7,8 +7,185 @@ editor: visual
 
 ## Introduction
 
+This project develops practical competency in transforming wide-format datasets into tidy formats suitable for downstream analysis. All transformations and data manipulations are performed using the \`tidyr\` and \`dplyr\` packages in R, with visualizations built using \`ggplot2\`.
+
+**Dataset used:**
+
+**Uncleaned Laptop Price Dataset**: https://www.kaggle.com/datasets/ehtishamsadiq/uncleaned-laptop-price-dataset
+
 ## Approach
+
+This dataset contains 1,303 laptop models covering specs like CPU, RAM, storage, GPU, screen resolution, OS, weight, and price. As the name suggests, the data comes as-is — messy, mixed, and in need of some serious cleaning before anything useful can be done with it.
+
+The first thing I'll need to tackle is all the columns that are stuffed with multiple pieces of information. For example, RAM is stored as "8GB" instead of just 8, the CPU column bundles brand, model, and clock speed together, and Memory mixes storage size with storage type. I'll use \`stringr\` to pull out the numeric values and separate the meaningful parts into their own columns.
+
+Once the data is clean, I'll reshape the specification columns into long format using \`pivot_longer()\`, which will make it much easier to compare specs across laptop types. From there I want to explore which laptop types give you the most RAM and storage for your money — essentially a value-for-price analysis, using laptop type as the main grouping variable rather than brand, since type is a better reflection of what you're actually getting.
 
 ## Base Code
 
+```{r}
+#| message: false
+library(tidyverse)
+```
+
+## Data Import
+
+```{r}
+# Raw Data Import from my GitHub repository 
+raw_data <- read_csv(
+  "https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/Project2/laptopData.csv")
+glimpse(raw_data)
+head(raw_data)
+```
+
+## Data Cleaning
+
+```{r}
+#| warning: false
+
+library(tidyverse)
+
+# Clean and standardize the raw laptop dataset
+clean_data <- raw_data |>
+  # Remove unnecessary index column if present
+  select(-`Unnamed: 0`) |>
+  
+  # Standardize column names to lowercase
+  rename_with(tolower) |>
+  
+  # Trim whitespace and convert empty strings to NA in all character columns
+  mutate(
+    across(where(is.character), ~ na_if(str_trim(.x), "")),
+    
+    # Convert obvious placeholder values to NA
+    across(c(memory, ram, weight, inches, opsys), ~ na_if(.x, "?"))
+  ) |>
+  
+  # Clean and transform variables
+  mutate(
+    # Convert embedded numeric text to numeric values
+    ram = parse_number(ram),
+    weight = parse_number(weight),
+    inches = parse_number(inches),
+    
+    # Extract storage size in GB
+    storage_gb = parse_number(memory),
+    
+    # Extract main storage type
+    storage_type = case_when(
+      str_detect(memory, regex("ssd", ignore_case = TRUE)) ~ "SSD",
+      str_detect(memory, regex("flash", ignore_case = TRUE)) ~ "Flash Storage",
+      str_detect(memory, regex("hdd", ignore_case = TRUE)) ~ "HDD",
+      str_detect(memory, regex("hybrid", ignore_case = TRUE)) ~ "Hybrid",
+      TRUE ~ NA_character_
+    ),
+    
+    # Standardize operating system categories
+    opsys = case_when(
+      str_detect(opsys, regex("windows", ignore_case = TRUE)) ~ "Windows",
+      str_detect(opsys, regex("mac", ignore_case = TRUE)) ~ "macOS",
+      str_detect(opsys, regex("linux", ignore_case = TRUE)) ~ "Linux",
+      str_detect(opsys, regex("chrome", ignore_case = TRUE)) ~ "Chrome OS",
+      str_detect(opsys, regex("no os", ignore_case = TRUE)) ~ "No OS",
+      TRUE ~ "Other"
+    ),
+    
+    # Convert price to USD using an approximate exchange rate
+    price_usd = round(price / 84)
+  ) |>
+  
+  # Remove original price column after conversion
+  select(-price)
+
+# Reshape selected numeric specifications from wide to long format
+tidy_data <- clean_data |>
+  pivot_longer(
+    cols = c(ram, weight, inches, storage_gb),
+    names_to = "specification",
+    values_to = "value"
+  ) |>
+  
+  # Remove rows only when the pivoted value is missing
+  drop_na(value)
+
+# Inspect cleaned wide data
+glimpse(clean_data)
+
+# Inspect final tidy data
+glimpse(tidy_data)
+
+# View first few rows of tidy output
+head(tidy_data)
+
+```
+
+##  Data Analysis: 
+
+-   **Lowest average price** by brand
+
+```{r}
+
+# Top laptop brand affordability analysis
+
+# Calculate average price for each laptop brand
+brand_price <- clean_data |>
+  filter(!is.na(company), !is.na(price_usd)) |>   # remove rows with missing brand or price
+  group_by(company) |>
+  summarise(
+    avg_price = round(mean(price_usd), 2),        # average price per brand
+    n_models = n(),                               # number of laptop models for each brand
+    .groups = "drop"
+  ) |>
+  mutate(
+    # Create affordability tiers based on average price
+    affordability = case_when(
+      avg_price < 400  ~ "Affordable (0–400 USD)",
+      avg_price < 800  ~ "Mid-range (400–800 USD)",
+      avg_price < 1200 ~ "Premium (800–1200 USD)",
+      TRUE             ~ "High-end (1200+ USD)"
+    ),
+
+    # Order the tiers logically for plotting
+    affordability = factor(
+      affordability,
+      levels = c(
+        "Affordable (0–400 USD)",
+        "Mid-range (400–800 USD)",
+        "Premium (800–1200 USD)",
+        "High-end (1200+ USD)"
+      )
+    )
+  )
+
+# Keep only brands with at least 5 models
+brand_price_filtered <- brand_price |>
+  filter(n_models >= 5)
+
+# Inspect the result
+glimpse(brand_price_filtered)
+```
+
+```{r}
+ggplot(brand_price_filtered,
+       aes(x = reorder(company, avg_price),
+           y = avg_price,
+           fill = affordability)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Laptop Brand Affordability by Average Price",
+    subtitle = "Average laptop price by brand (USD)",
+    x = "Laptop Brand",
+    y = "Average Price (USD)",
+    fill = "Affordability Tier"
+  ) +
+  theme_minimal()
+```
+
 ## Conclusion
+
+This analysis examined laptop brand affordability by calculating the average price of laptops for each manufacturer after converting prices to U.S. dollars. Brands were grouped into affordability tiers based on their average price, ranging from affordable to high-end.
+
+The results show clear differences in market positioning across laptop brands. Mediacom and Acer fall into the affordable category with average prices below \$400. Brands such as HP, Lenovo, Asus, Dell, and Toshiba appear in the mid-range segment, with average prices between \$400 and \$800. Apple, Microsoft, MSI, and Samsung occupy the premium category, with average prices between \$800 and \$1200. Razer stands out as the only brand classified as high-end, with an average price exceeding \$2000.
+
+These findings suggest that laptop manufacturers tend to occupy distinct price segments within the market. Some brands focus on budget-friendly devices, while others target premium or high-performance categories. Understanding these price tiers helps illustrate how different brands position their products within the broader laptop market.
