@@ -15,11 +15,11 @@ This project develops practical competency in transforming wide-format datasets 
 
 ## Approach
 
-This dataset tracks 5,000 students, each with their own `Student_ID`, across 23 columns covering everything from midterm and final scores to sleep hours, stress levels, and whether they have internet at home. It's wide in a very natural way — there are six separate score columns (midterm, final, assignments, quizzes, participation, and projects) that all measure the same thing: how a student is performing academically.
+This dataset tracks 5,000 students, each with their own Student_ID, across 23 columns covering everything from midterm and final scores to sleep hours, stress levels, and whether they have internet at home. It's wide in a very natural way there are six separate score columns (midterm, final, assignments, quizzes, participation, and projects) that all measure the same thing: how a student is performing academically.
 
-The plan is to collapse those six score columns into long format using `pivot_longer()`, so each row represents one student's score on one type of assessment. That opens up comparisons that would be awkward to do in wide format — like whether students with more study hours consistently score higher across *all* assessment types, or just some. The tricky part will be deciding which columns actually get pivoted and which ones stay as contextual background — stress level and sleep hours, for instance, belong in the latter category.
+The plan is to collapse those six score columns into long format using pivot_longer(), so each row represents one student's score on one type of assessment. That opens up comparisons that would be awkward to do in wide format, like whether students with more study hours consistently score higher across *all* assessment types, or just some. The tricky part will be deciding which columns actually get pivoted and which ones stay as contextual background, stress level and sleep hours, for instance, belong in the latter category.
 
-Once the data is tidy, the analysis will focus on **which factors are most associated with a higher total score**. I'll use `group_by()` and `summarize()` to compare average scores across socioeconomic groups (family income level, internet access, parental education), and calculate the **average score per assessment type per student** to see whether performance is consistent across all assessments or whether certain students shine in some areas and struggle in others. Visualizations will include grouped bar charts and scatter plots of study hours against total score, faceted by factors like internet access and family income.
+Once the data is tidy, the analysis will focus on which factors are most associated with a higher total score. I'll use group_by() and summarize() to compare average scores across socioeconomic groups (family income level, internet access, parental education), and calculate the average score per assessment type per student to see whether performance is consistent across all assessments or whether certain students shine in some areas and struggle in others. Visualizations will include grouped bar charts and scatter plots of study hours against total score, faceted by factors like internet access and family income.
 
 ## Base Code
 
@@ -112,18 +112,8 @@ ggplot(avg_scores, aes(x = assessment_type, y = average_score)) +
 
 ## Conclusion
 
-The original dataset stored several assessment scores in separate columns, creating a wide format that made
+The original dataset stored multiple assessment scores in separate columns, resulting in a wide structure that made comparisons between different types of evaluations less straightforward. By applying the pivot_longer() function from the tidyr package within the tidyverse, these score columns were transformed into a tidy format where each row represents a single student’s score for a specific assessment type.
 
-comparisons between assessment types more difficult. Using the pivot_longer() function from the tidyr(tidyverse) package,
+This restructuring created a consistent variable structure that made it easier to group, summarize, and visualize the data. Using the tidy dataset, the analysis compared average performance across different assessment categories. The results indicate that students tend to achieve higher average scores on projects, quizzes, and assignments, while participation scores are noticeably lower. Midterm and final exam scores fall within the middle range of overall performance.
 
-these columns were reshaped into a tidy structure where each row represents a single student’s score for a specific assessment type.
-
-This transformation simplified the analytical process by allowing scores to be grouped and summarized using a consistent variable structure.
-
-The analysis of average scores across assessment types shows that students tend to achieve higher results on projects, quizzes,
-
-and assignments, while participation scores are noticeably lower on average. Midterm and final exam scores fall between these categories.
-
-Overall, converting the dataset to tidy format enabled clearer comparisons between assessment categories and demonstrated how data
-
-reshaping can support more efficient and meaningful analysis.
+Overall, transforming the dataset from wide to tidy format significantly simplified the analytical workflow and enabled clearer comparisons between assessment types. This project demonstrates how proper data structuring is a critical step in data analysis, allowing meaningful insights to be extracted more efficiently.
