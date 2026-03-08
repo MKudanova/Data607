@@ -1,5 +1,5 @@
 ---
-title: "Laptop Price"
+title: "Laptop Prices"
 author: "Madina Kudanova"
 format: html
 editor: visual
@@ -15,11 +15,11 @@ This project develops practical competency in transforming wide-format datasets 
 
 ## Approach
 
-This dataset contains 1,303 laptop models covering specs like CPU, RAM, storage, GPU, screen resolution, OS, weight, and price. As the name suggests, the data comes as-is — messy, mixed, and in need of some serious cleaning before anything useful can be done with it.
+This dataset contains 1,303 laptop models covering specs like CPU, RAM, storage, GPU, screen resolution, OS, weight, and price. As the name suggests, the data comes as-is messy, mixed, and in need of some serious cleaning before anything useful can be done with it.
 
 The first thing I'll need to tackle is all the columns that are stuffed with multiple pieces of information. For example, RAM is stored as "8GB" instead of just 8, the CPU column bundles brand, model, and clock speed together, and Memory mixes storage size with storage type. I'll use \`stringr\` to pull out the numeric values and separate the meaningful parts into their own columns.
 
-Once the data is clean, I'll reshape the specification columns into long format using \`pivot_longer()\`, which will make it much easier to compare specs across laptop types. From there I want to explore which laptop types give you the most RAM and storage for your money — essentially a value-for-price analysis, using laptop type as the main grouping variable rather than brand, since type is a better reflection of what you're actually getting.
+Once the data is clean, I'll reshape the specification columns into long format using \`pivot_longer()\`, which will make it much easier to compare specs across laptop types. From there I want to explore which laptop types give you the most RAM and storage for your money, essentially a value-for-price analysis, using laptop type as the main grouping variable rather than brand, since type is a better reflection of what you're actually getting.
 
 ## Base Code
 
@@ -42,8 +42,6 @@ head(raw_data)
 
 ```{r}
 #| warning: false
-
-library(tidyverse)
 
 # Clean and standardize the raw laptop dataset
 clean_data <- raw_data |>
@@ -119,9 +117,7 @@ head(tidy_data)
 
 ```
 
-##  Data Analysis: 
-
--   **Lowest average price** by brand
+## Data Analysis: Top laptop brand affordability analysis
 
 ```{r}
 
