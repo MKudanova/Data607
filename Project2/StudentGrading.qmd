@@ -7,8 +7,123 @@ editor: visual
 
 ## Introduction
 
+This project develops practical competency in transforming wide-format datasets into tidy formats suitable for downstream analysis. All transformations and data manipulations are performed using the \`tidyr\` and \`dplyr\` packages in R, with visualizations built using \`ggplot2\`.
+
+**Dataset used:**
+
+**Student Performance & Behavior Dataset:** //www.kaggle.com/datasets/mahmoudelhemaly/students-grading-dataset
+
 ## Approach
+
+This dataset tracks 5,000 students, each with their own `Student_ID`, across 23 columns covering everything from midterm and final scores to sleep hours, stress levels, and whether they have internet at home. It's wide in a very natural way — there are six separate score columns (midterm, final, assignments, quizzes, participation, and projects) that all measure the same thing: how a student is performing academically.
+
+The plan is to collapse those six score columns into long format using `pivot_longer()`, so each row represents one student's score on one type of assessment. That opens up comparisons that would be awkward to do in wide format — like whether students with more study hours consistently score higher across *all* assessment types, or just some. The tricky part will be deciding which columns actually get pivoted and which ones stay as contextual background — stress level and sleep hours, for instance, belong in the latter category.
+
+Once the data is tidy, the analysis will focus on **which factors are most associated with a higher total score**. I'll use `group_by()` and `summarize()` to compare average scores across socioeconomic groups (family income level, internet access, parental education), and calculate the **average score per assessment type per student** to see whether performance is consistent across all assessments or whether certain students shine in some areas and struggle in others. Visualizations will include grouped bar charts and scatter plots of study hours against total score, faceted by factors like internet access and family income.
 
 ## Base Code
 
+```{r}
+ #| message: false
+ library(tidyverse)
+
+```
+
+## Data Import
+
+```{r}
+# Raw Data Import from my GitHub repository 
+raw_data <- read_csv(
+  "https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/Project2/Students%20Performance%20Dataset.csv")
+
+glimpse(raw_data)
+names(raw_data)
+head(raw_data)
+```
+
+## Data Cleaning and Tidying
+
+```{r}
+# Cleaning and Tidying
+
+# Standardize column names
+clean_data <- raw_data |>
+  rename_with(tolower)
+
+# Convert wide score columns to long format
+clean_data <- clean_data |>
+  pivot_longer(
+    cols = c(
+      midterm_score,
+      final_score,
+      assignments_avg,
+      quizzes_avg,
+      participation_score,
+      projects_score
+    ),
+    names_to = "assessment_type",
+    values_to = "score"
+  )
+
+# Remove rows with missing score values
+clean_data <- clean_data |>
+  drop_na(score)
+
+# Check final tidy dataset
+glimpse(clean_data)
+head(clean_data)
+
+names(clean_data)
+glimpse(clean_data)
+select(clean_data, student_id, assessment_type, score) |> head()
+```
+
+## Data Analysis
+
+```{r}
+avg_scores <- clean_data |>
+  group_by(assessment_type) |>
+  summarise(
+    average_score = mean(score, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+avg_scores
+
+
+```
+
+## Visualization
+
+```{r}
+ggplot(avg_scores, aes(x = assessment_type, y = average_score)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = round(average_score,1)),
+            vjust = -0.5) +
+  labs(
+    title = "                                     Average Score by Assessment Type
+    
+    ",
+    x = "Assessment Type",
+    y = "Average Score"
+  ) +
+  theme_minimal()
+```
+
 ## Conclusion
+
+The original dataset stored several assessment scores in separate columns, creating a wide format that made
+
+comparisons between assessment types more difficult. Using the pivot_longer() function from the tidyr(tidyverse) package,
+
+these columns were reshaped into a tidy structure where each row represents a single student’s score for a specific assessment type.
+
+This transformation simplified the analytical process by allowing scores to be grouped and summarized using a consistent variable structure.
+
+The analysis of average scores across assessment types shows that students tend to achieve higher results on projects, quizzes,
+
+and assignments, while participation scores are noticeably lower on average. Midterm and final exam scores fall between these categories.
+
+Overall, converting the dataset to tidy format enabled clearer comparisons between assessment categories and demonstrated how data
+
+reshaping can support more efficient and meaningful analysis.
