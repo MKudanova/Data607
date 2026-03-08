@@ -7,8 +7,116 @@ editor: visual
 
 ## Introduction
 
+This project develops practical competency in transforming wide-format datasets into tidy formats suitable for downstream analysis. All transformations and data manipulations are performed using the \`tidyr\` and \`dplyr\` packages in R, with visualizations built using \`ggplot2\`.
+
+**Dataset used:**
+
+**Global Country Information Dataset 2023**: www.kaggle.com/datasets/nelgiriyewithana/countries-of-the-world-2023
+
 ## Approach
+
+This one has 195 rows — one per country — and 35 columns packed with economic, health, and demographic indicators. GDP, life expectancy, infant mortality, CO2 emissions, birth rate, physicians per thousand — it's all there, each as its own column. That makes it a clean example of wide format: one unique entity per row, many different measurements spread horizontally.
+
+The main challenge before any reshaping can happen is that most of the numeric columns aren't actually stored as numbers. Things like GDP come in with dollar signs and commas baked in, percentages have the `%` still attached, and a few column names have special characters and line breaks in them. So the first order of business is cleaning all of that up with `stringr` and `janitor` before `pivot_longer()` even comes into the picture.
+
+Once the data is tidy, the analysis will center on **what predicts life expectancy across countries**. Since life expectancy is already a direct numeric value in the dataset, the work is in exploring what drives it — I'll calculate **correlations between life expectancy and key indicators** like GDP, infant mortality, physicians per thousand, and out-of-pocket health expenditure, and visualize the strongest relationships using scatter plots. A grouped summary by region will also show whether geography plays a role above and beyond economic factors.
 
 ## Base Code
 
+```{r}
+#| message: false
+library(tidyverse)
+```
+
+```{r}
+# Raw Data Import from my GitHub repository 
+raw_data <- read_csv(
+  "https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/Project2/world-data-2023.csv")
+
+glimpse(raw_data)
+head(raw_data)
+```
+
+## Data Cleaning and Tidying
+
+```{r}
+# Clean column names
+names(raw_data) <- names(raw_data) |>
+  str_replace_all("\n", "_") |>
+  str_replace_all("[ %()/:-]", "_") |>
+  str_replace_all("_+", "_") |>
+  str_replace_all("_$", "") |>
+  str_to_lower()
+
+# Convert formatted text columns to numeric
+countries_clean <- raw_data |>
+  mutate(
+    agricultural_land = parse_number(agricultural_land),
+    cpi_change = parse_number(cpi_change),
+    forested_area = parse_number(forested_area),
+    gasoline_price = parse_number(gasoline_price),
+    gdp = parse_number(gdp),
+    gross_primary_education_enrollment = parse_number(gross_primary_education_enrollment),
+    gross_tertiary_education_enrollment = parse_number(gross_tertiary_education_enrollment),
+    minimum_wage = parse_number(minimum_wage),
+    out_of_pocket_health_expenditure = parse_number(out_of_pocket_health_expenditure),
+    population_labor_force_participation = parse_number(population_labor_force_participation),
+    tax_revenue = parse_number(tax_revenue),
+    total_tax_rate = parse_number(total_tax_rate),
+    unemployment_rate = parse_number(unemployment_rate)
+  )
+
+# Reshape from wide to long
+countries_tidy <- countries_clean |>
+  pivot_longer(
+    cols = -c(
+      country,
+      abbreviation,
+      capital_major_city,
+      largest_city,
+      official_language,
+      currency_code,
+      latitude,
+      longitude
+    ),
+    names_to = "indicator",
+    values_to = "value"
+  )
+
+# Check the tidy dataset
+glimpse(countries_tidy)
+head(countries_tidy)
+
+nrow(countries_tidy)
+
+```
+
+## Analysis: Examining the Relationship Between GDP and Life Expectancy
+
+```{r}
+# Select top 10 countries by GDP for labels
+top_gdp <- analysis_data |>
+  arrange(desc(gdp)) |>
+  slice_head(n = 10)
+
+ggplot(analysis_data, aes(x = gdp, y = life_expectancy)) +
+  geom_point(color = "steelblue", size = 2.5, alpha = 0.7) +
+  scale_x_log10(labels = scales::label_number(scale_cut = scales::cut_short_scale())) +
+  labs(
+    title = "                        Relationship Between GDP and Life Expectancy
+    
+    ",
+    x = "GDP",
+    y = "Life Expectancy"
+  )
+```
+
 ## Conclusion
+
+In this project, a wide-format global country dataset was cleaned and transformed into tidy format to enable meaningful analysis. The original dataset contained multiple indicators stored across many columns, as well as several numeric values recorded as formatted text containing symbols such as percent signs, dollar signs, and commas. These inconsistencies were addressed by standardizing column names and converting formatted values into numeric variables. The dataset was then reshaped from wide format into long tidy format using `pivot_longer()`, resulting in a structure where each row represents one indicator measurement for a specific country.
+
+Once the data was tidied, exploratory analysis focused on examining the relationship between GDP and life expectancy across countries. A scatter plot was used to visualize the association between these variables. Because GDP values vary dramatically across countries, the GDP axis was displayed on a logarithmic scale to improve readability and better reveal patterns in the data.
+
+The results suggest a generally positive relationship between GDP and life expectancy. Countries with larger economies tend to exhibit higher life expectancy values, although the relationship is not perfectly linear. Some countries with moderate GDP levels still achieve relatively high life expectancy, indicating that additional factors such as healthcare systems, social policies, and public health conditions also influence population health outcomes.
+
+Overall, the analysis demonstrates how transforming data into tidy format enables flexible exploration of relationships between variables. By restructuring the dataset and addressing inconsistencies in the original data, the indicators could be easily filtered, reshaped, and visualized to investigate meaningful global patterns.
