@@ -5,7 +5,7 @@ format: html
 editor: visual
 ---
 
-## ![]![](data/pic.png)
+![](data/pic.png)
 ## Introduction
 
 This assignment explores how structured data can be represented and imported into R using two common data formats: HTML and JSON. The objective is to manually create small datasets in both formats and then load them into R for analysis.
