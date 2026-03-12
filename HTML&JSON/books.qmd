@@ -1,1 +1,26 @@
+---
+title: "Books"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
 
+## ![](images/Screenshot%202026-03-12%20at%201.33.36%20PM.png)
+
+## Introduction
+
+This assignment explores how structured data can be represented and imported into R using two common data formats: HTML and JSON. The objective is to manually create small datasets in both formats and then load them into R for analysis.
+
+## Approach
+
+The first step in completing this assignment was selecting a small dataset consisting of three books on a common subject. The chosen subject is data science and data mining, which are closely related fields.
+
+The three selected books are Data Science from Scratch by Joel Grus, Introduction to Data Mining by Pang-Ning Tan, Michael Steinbach, Anuj Karpatne, and Vipin Kumar, and Data Smart by John W. Foreman. These books were selected because they represent different perspectives within the data science field, including programming-based data science, machine learning and data mining techniques, and applied business analytics.
+
+For each book, several attributes were recorded, including the title, authors, publication year, publisher, and genre. This information was then used to manually construct two data files: an HTML file containing a table with the book data and a JSON file representing the same information in structured format.
+
+After creating these files, R was used to load the HTML and JSON data into separate data frames. Finally, the two data frames were compared to determine whether they contain identical information.
+
+## Code Base
+
+## Conclusion
