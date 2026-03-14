@@ -1,11 +1,12 @@
 ---
-title: "Books"
+title: "Books: HTML & JSON"
 author: "Madina Kudanova"
 format: html
 editor: visual
 ---
 
-![](data/pic.png)
+## ![](images/pic.png)
+
 ## Introduction
 
 This assignment explores how structured data can be represented and imported into R using two common data formats: HTML and JSON. The objective is to manually create small datasets in both formats and then load them into R for analysis.
@@ -22,4 +23,41 @@ After creating these files, R was used to load the HTML and JSON data into separ
 
 ## Code Base
 
+```{r message = FALSE}
+library(rvest)
+library(jsonlite)
+library(knitr)
+```
+
+#### Load, read and convert the table from the HTML file into a data frame.
+
+```{r}
+html_page <- read_html("https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/HTML%26JSON/books.html")
+books_html_df <- html_table(html_page, fill = TRUE)[[1]]
+
+kable(books_html_df)
+```
+
+#### Load, read and converts the JSON structure into a data frame
+
+```{r}
+
+books_json_df <- fromJSON("https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/HTML%26JSON/books.json")
+
+kable(books_json_df)
+
+```
+
+#### Comparing the data frames
+
+```{r}
+books_html_df <- as.data.frame(books_html_df)
+books_json_df <- as.data.frame(books_json_df)
+ 
+identical(books_html_df, books_json_df)
+all.equal(books_html_df, books_json_df)
+```
+
 ## Conclusion
+
+**Both the HTML and JSON files were successfully imported into R and converted into data frames. After converting them to the same class, the comparison confirmed that the datasets contain identical information. This exercise demonstrates how different structured data formats can be integrated and analyzed in R.**
