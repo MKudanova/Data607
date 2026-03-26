@@ -7,8 +7,6 @@ editor: visual
 
 ## Approach
 
-## Approach
-
 I will use the New York Times Article Search API to analyze how frequently different newspaper sections publish articles on a specific topic. The ultimate goal is to answer the question: which New York Times sections published the most articles about artificial intelligence in 2025, and how this distribution compares to 10 years earlier.
 
 To answer this question, I will first obtain access to the API by creating a New York Times developer account and securely storing my API key as an environment variable using Sys.getenv("NYT_API_KEY"). I will then construct requests to the Article Search API endpoint using a keyword query (“AI” and "artificial intelligence) and two defined date ranges: January 1 to December 31, 2025, and January 1 to December 31, 2015. I will include the section_name facet parameter to summarize article counts by section for each time period.
