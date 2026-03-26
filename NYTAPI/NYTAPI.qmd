@@ -1,6 +1,6 @@
 ---
 title: "NY Times API"
-author: "Madina KUdanova"
+author: "Madina Kudanova"
 format: html
 editor: visual
 ---
