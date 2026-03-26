@@ -1,1 +1,22 @@
+---
+title: "NY Times API"
+author: "Madina KUdanova"
+format: html
+editor: visual
+---
 
+## Approach
+
+## Approach
+
+I will use the New York Times Article Search API to analyze how frequently different newspaper sections publish articles on a specific topic. The ultimate goal is to answer the question: which New York Times sections published the most articles about artificial intelligence in 2025, and how this distribution compares to 10 years earlier.
+
+To answer this question, I will first obtain access to the API by creating a New York Times developer account and securely storing my API key as an environment variable using Sys.getenv("NYT_API_KEY"). I will then construct requests to the Article Search API endpoint using a keyword query (“AI” and "artificial intelligence) and two defined date ranges: January 1 to December 31, 2025, and January 1 to December 31, 2015. I will include the section_name facet parameter to summarize article counts by section for each time period.
+
+Once the requests are made, I will parse the returned JSON responses using R, specifically with the jsonlite package, and inspect their structure to identify the relevant fields. Because the API response is nested, I will extract the section-level counts from the facets portion of each response and transform them into tidy data frames. Each dataset will contain section names and their corresponding article counts.
+
+The datasets for both years will then be combined into a single structure that includes a year variable, allowing for direct comparison. Finally, I will analyze the data by comparing article counts across sections between 2015 and 2025 to identify shifts in coverage over time. The final Quarto document will include a description of the selected API and endpoint, the parameters used in the requests, the R code for authentication and data retrieval, the resulting tidy data frames, and a brief explanation of any data-cleaning decisions made during the process.
+
+## Code Base
+
+## Conclusion
