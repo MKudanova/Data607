@@ -1,34 +1,198 @@
 ---
 title: "NY Times API"
-author: "Madina Kudanova"
+author: "Madina KUdanova"
 format: html
 editor: visual
 ---
 
 ## Approach
 
-I will use the New York Times Article Search API to analyze how frequently different newspaper sections 
-publish articles on a specific topic. The ultimate goal is to answer the question: which New York Times 
-sections published the most articles about artificial intelligence in 2025, and how this distribution 
-compares to 10 years earlier.
+I will use the New York Times Article Search API to analyze how frequently different newspaper sections publish articles on a specific topic. The ultimate goal is to answer the question: which New York Times sections published the most articles about artificial intelligence in 2025, and how this distribution compares to 10 years earlier.
 
-To answer this question, I will first obtain access to the API by creating a New York Times developer account 
-and securely storing my API key as an environment variable using Sys.getenv("NYT_API_KEY"). I will then 
-construct requests to the Article Search API endpoint using keywords query (“AI” and "artificial intelligence) 
-and two defined date ranges: January 1 to December 31, 2025, and January 1 to December 31, 2015. I will include 
-the section_name facet parameter to summarize article counts by section for each time period.
+To answer this question, I will first obtain access to the API by creating a New York Times developer account and securely storing my API key as an environment variable using Sys.getenv("NYT_API_KEY"). I will then construct requests to the Article Search API endpoint using a keyword query (“AI” and "artificial intelligence) and two defined date ranges: January 1 to December 31, 2025, and January 1 to December 31, 2015. I will include the section_name facet parameter to summarize article counts by section for each time period.
 
-Once the requests are made, I will parse the returned json responses using R, specifically with the jsonlite
-package, and inspect their structure to identify the relevant fields. Because the API response is nested,
-I will extract the section-level counts from the facets portion of each response and transform them into tidy 
-data frames. Each dataset will contain section names and their corresponding article counts.
+Once the requests are made, I will parse the returned JSON responses using R, specifically with the jsonlite package, and inspect their structure to identify the relevant fields. Because the API response is nested, I will extract the section-level counts from the facets portion of each response and transform them into tidy data frames. Each dataset will contain section names and their corresponding article counts.
 
-The datasets for both years will then be combined into a single structure that includes a year variable, allowing 
-for direct comparison. Finally, I will analyze the data by comparing article counts across sections between 2015 and
-2025 to identify shifts in coverage over time. The final Quarto document will include a description of the selected 
-API and endpoint, the parameters used in the requests, the R code for authentication and data retrieval, the resulting
-tidy data frames, and a brief explanation of any data-cleaning decisions made during the process.
+The datasets for both years will then be combined into a single structure that includes a year variable, allowing for direct comparison. Finally, I will analyze the data by comparing article counts across sections between 2015 and 2025 to identify shifts in coverage over time. The final Quarto document will include a description of the selected API and endpoint, the parameters used in the requests, the R code for authentication and data retrieval, the resulting tidy data frames, and a brief explanation of any data-cleaning decisions made during the process.
 
 ## Code Base
 
+```{r message=FALSE}
+library(tidyverse)
+library(httr2)
+
+```
+
+```{r message=FALSE}
+library(jsonlite)
+```
+
+## API Key Authentication
+
+The API key is stored securely as an environment variable and accessed with `Sys.getenv()`.
+
+To set it once on your computer, you can run something like this in your `.Renviron` file:
+
+`NYT_API_KEY=your_actual_key_here`
+
+Then restart R.
+
+```{r}
+readRenviron("~/.Renviron")
+nyt_key <- Sys.getenv("NYT_API_KEY")
+
+if (nyt_key == "") {
+  stop("NYT_API_KEY not found. Please store your API key in an environment variable.")
+}
+```
+
+```{r}
+req <- request("https://api.nytimes.com/svc/search/v2/articlesearch.json") |>
+  req_url_query(
+    q = "artificial intelligence OR AI OR machine learning OR language model",
+    begin_date = "20250101",
+    end_date = "20251231",
+    page = 0,
+    `api-key` = nyt_key
+  )
+
+resp <- req_perform(req)
+resp
+
+```
+
+```{r}
+# convert JSON response into R list
+nyt_data <- resp_body_json(resp, simplifyVector = TRUE)
+
+# inspect structure
+names(nyt_data)
+names(nyt_data$response)
+```
+
+```{r}
+# create a tidy dataframe from the JSON response
+articles_df <- as_tibble(nyt_data$response$docs) |>
+  transmute(
+    headline = headline$main,  # extract main headline text
+    section_name = if_else(is.na(section_name) | section_name == "", "Unknown", section_name),  # fill missing sections
+    pub_date = as.Date(substr(pub_date, 1, 10)),  # convert publication date
+    web_url,          # article link
+    news_desk,        # newsroom category
+    document_type     # type of article
+  )
+
+# view the cleaned dataframe
+articles_df
+```
+
+```{r}
+# count articles by section
+section_counts <- articles_df |>
+  count(section_name, sort = TRUE)
+
+section_counts
+```
+
+```{r}
+# plot top sections
+section_counts |>
+  slice_max(order_by = n, n = 10) |>
+  ggplot(aes(x = reorder(section_name, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top NYT Sections for AI Articles in 2025",
+    x = "Section",
+    y = "Article Count"
+  )
+```
+
+```{r}
+# request 2015 data (1 page to avoid rate limits)
+req_2015 <- request("https://api.nytimes.com/svc/search/v2/articlesearch.json") |>
+  req_url_query(
+    q = "artificial intelligence OR AI OR machine learning",
+    begin_date = "20150101",
+    end_date = "20151231",
+    page = 0,
+    `api-key` = nyt_key
+  )
+
+resp_2015 <- req_perform(req_2015)
+
+# parse JSON
+nyt_data_2015 <- resp_body_json(resp_2015, simplifyVector = TRUE)
+
+# create dataframe for 2015
+articles_2015 <- as_tibble(nyt_data_2015$response$docs) |>
+  transmute(
+    headline = headline$main,
+    section_name = if_else(is.na(section_name) | section_name == "", "Unknown", section_name),
+    pub_date = as.Date(substr(pub_date, 1, 10)),
+    web_url,
+    news_desk,
+    document_type
+  )
+
+articles_2015
+```
+
+```{r}
+# add year labels
+nyt_2025 <- articles_df |> mutate(year = 2025)
+nyt_2015 <- articles_2015 |> mutate(year = 2015)
+
+# combine both datasets
+nyt_all <- bind_rows(nyt_2015, nyt_2025)
+
+nyt_all
+```
+
+```{r}
+# count by year and section
+section_compare <- nyt_all |>
+  count(year, section_name, sort = TRUE)
+
+section_compare
+```
+
+```{r}
+ggplot(section_compare, aes(x = n, y = reorder(section_name, n))) +
+  geom_point(size = 3) +
+  geom_text(aes(label = n), hjust = -0.3) +
+  facet_wrap(~ year, scales = "free_y") +
+  labs(
+    title = "NYT Sections for AI Articles: 2015 vs 2025",
+    x = "Article Count",
+    y = "Section"
+  ) +
+  expand_limits(x = max(section_compare$n) + 1)
+```
+
+```{r}
+section_totals <- section_compare |>
+  group_by(year) |>
+  summarize(total = sum(n))
+
+section_totals
+section_pct <- section_compare |>
+  group_by(year) |>
+  mutate(
+    total = sum(n),
+    pct = (n / total) * 100
+  ) |>
+  ungroup()
+
+section_pct
+```
+
 ## Conclusion
+
+The comparison between 2015 and 2025 shows a clear shift in how artificial intelligence is covered across New York Times sections. In 2015, coverage was concentrated primarily in Technology and Science, suggesting a more technical and research-oriented focus.
+
+By 2025, AI-related articles appear across a broader range of sections, including Technology, Business, Opinion, and others, indicating that AI has expanded beyond a specialized topic into wider industry and public discourse.
+
+A percentage-based comparison highlights this shift more clearly. The Business section shows the largest increase, growing from 0% in 2015 to 20% in 2025, reflecting the growing economic relevance of AI. In contrast, Science declines from 20% to 0%, suggesting reduced emphasis on AI as a purely research-driven subject. Technology remains the dominant section in both years, increasing from 40% to 50%, while the appearance of new sections in 2025 reflects the broader integration of AI across different domains.
+
+Because this analysis is based on the first page of API results for each year, the findings should be interpreted as a sample rather than a complete count of all published articles.
