@@ -159,15 +159,13 @@ section_compare
 
 ```{r}
 ggplot(section_compare, aes(x = n, y = reorder(section_name, n))) +
-  geom_point(size = 3) +
-  geom_text(aes(label = n), hjust = -0.3) +
+  geom_col() +
   facet_wrap(~ year, scales = "free_y") +
   labs(
     title = "NYT Sections for AI Articles: 2015 vs 2025",
     x = "Article Count",
     y = "Section"
-  ) +
-  expand_limits(x = max(section_compare$n) + 1)
+  )
 ```
 
 ```{r}
