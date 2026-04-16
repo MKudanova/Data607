@@ -1,0 +1,26 @@
+---
+title: "10B-approach"
+author: "MadinaKudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This assignment uses the Nobel Prize API to explore patterns in Nobel Prize awards using structured JSON data. The goal is to move beyond simple summaries and investigate how laureates, prize categories, and countries are connected.
+
+## Approach
+
+The analysis begins by retrieving JSON data from the Nobel Prize API, specifically from the `laureates` and `nobelPrizes` endpoints. These endpoints provide detailed, nested data on individuals and prize records.
+
+The JSON data is loaded into R using the `jsonlite` package and then transformed into tidy data frames using `dplyr` and `tidyr`. Because the API data is nested (e.g., multiple prizes per laureate and multiple affiliations per prize), functions such as `unnest()` are used to flatten the structure into a tabular format suitable for analysis.
+
+Several related data frames are created, including:
+
+ 1) a laureates table with demographic information,
+2) a prize-level table linking individuals to awards,
+3) and an affiliations table capturing institutional and country information.
+
+These tables are then used to answer four questions. The analysis includes grouping, filtering, and joining across datasets to uncover patterns. At least one question involves comparing birth country and affiliation country, requiring a join between multiple data frames.
+
+The results are presented using tables and visualizations to clearly communicate the findings.
