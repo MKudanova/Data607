@@ -1,1 +1,20 @@
+---
+title: "10A: Approach"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
 
+## Introduction
+
+This project follows the sentiment analysis workflow introduced in Chapter 2 of *Text Mining with R*. The original example is reproduced by implementing the provided code in a Quarto (.qmd) file and ensuring it runs correctly. Proper citation is included for both the book and the source of the example. The analysis is then extended by applying the same methodology to a different text corpus and incorporating an additional sentiment lexicon.
+
+## Approach
+
+This project is completed in two stages. In the first stage, the base sentiment analysis example from Chapter 2 of *Text Mining with R* is reproduced. The original code is implemented in a Quarto (.qmd) file, executed to ensure correctness, and properly cited.
+
+In the second stage, the analysis is extended by applying the same workflow to a different text corpus. For the extended analysis, the novel *Frankenstein* by Mary Shelley is used as an additional text corpus, obtained from Project Gutenberg via the `gutenbergr` package. The text is processed using tidy text principles, where it is tokenized into individual words and joined with sentiment lexicons to calculate sentiment.
+
+An additional sentiment lexicon is incorporated beyond those used in the original example. This allows for comparison of how different lexicons classify sentiment across the same text.
+
+Finally, the results from the original example and the extended analysis are compared to evaluate differences in sentiment across datasets and lexicons.
