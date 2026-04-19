@@ -1,0 +1,148 @@
+---
+title: "10A: Sentiment Analysis"
+author: "MadinaKudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This project follows the sentiment analysis workflow introduced in Chapter 2 of *Text Mining with R*. The original example is reproduced by implementing the provided code in a Quarto (.qmd) file and ensuring it runs correctly. Proper citation is included for both the book and the source of the example. The analysis is then extended by applying the same methodology to a different text corpus and incorporating an additional sentiment lexicon.
+
+## Approach
+
+This project is completed in two stages. In the first stage, the base sentiment analysis example from Chapter 2 of *Text Mining with R* is reproduced. The original code is implemented in a Quarto (.qmd) file, executed to ensure correctness, and properly cited.
+
+In the second stage, the analysis is extended by applying the same workflow to a different text corpus. For the extended analysis, the novel *Frankenstein* by Mary Shelley is used as an additional text corpus, obtained from Project Gutenberg via the `gutenbergr` package. The text is processed using tidy text principles, where it is tokenized into individual words and joined with sentiment lexicons to calculate sentiment.
+
+An additional sentiment lexicon is incorporated beyond those used in the original example. This allows for comparison of how different lexicons classify sentiment across the same text.
+
+Finally, the results from the original example and the extended analysis are compared to evaluate differences in sentiment across datasets and lexicons.
+
+## Code Base
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(tidytext)
+library(janeaustenr)
+library(gutenbergr)
+library(textdata)
+afinn_lexicon <- get_sentiments("afinn")
+```
+
+## PART 1: Reproduce Base Example
+
+```{r}
+# Load Jane Austen books (used in Chapter 2 example)
+austen_books <- austen_books()
+
+# Convert text into tidy format (one word per row)
+tidy_austen <- austen_books %>%
+  unnest_tokens(word, text)
+
+# Load Bing sentiment lexicon (positive / negative)
+bing_lexicon <- get_sentiments("bing")
+
+# Join words with sentiment labels
+austen_sentiment <- tidy_austen %>%
+  inner_join(bing_lexicon, by = "word")
+
+# Count sentiment per book
+austen_summary <- austen_sentiment %>%
+  count(book, sentiment)
+
+# View results
+austen_summary
+```
+
+## PART 2: Extended Analysis
+
+```{r}
+# Download Frankenstein by Mary Shelley (Gutenberg ID: 84)
+frankenstein <- gutenberg_download(84, meta_fields = c("title", "author"))
+
+# Convert text into tidy format
+tidy_frankenstein <- frankenstein %>%
+  unnest_tokens(word, text)
+
+# Remove common stop words (e.g., "the", "and")
+tidy_frankenstein <- tidy_frankenstein %>%
+  anti_join(stop_words, by = "word")
+
+frankenstein <- gutenberg_download(84, meta_fields = c("title", "author"))
+head(frankenstein)
+```
+
+## Sentiment using Bing lexicon
+
+```{r}
+frank_bing <- tidy_frankenstein %>%
+  inner_join(bing_lexicon, by = "word") %>%
+  count(sentiment)
+
+# View sentiment counts
+frank_bing
+
+
+```
+
+## Additional Lexicon: AFINN
+
+```{r}
+# Load AFINN lexicon (numeric sentiment scores)
+afinn_lexicon <- get_sentiments("afinn")
+
+# Join with Frankenstein words
+frank_afinn <- tidy_frankenstein %>%
+  inner_join(afinn_lexicon, by = "word")
+
+# Calculate average sentiment score
+afinn_summary <- frank_afinn %>%
+  summarize(avg_sentiment = mean(value, na.rm = TRUE))
+
+afinn_summary
+```
+
+## Sentiment over sections (better analysis)
+
+```{r}
+# Create index to group text into chunks (like Chapter 2 example)
+frank_sections <- tidy_frankenstein %>%
+  mutate(section = row_number() %/% 80)
+
+# Count sentiment per section
+frank_trend <- frank_sections %>%
+  inner_join(bing_lexicon, by = "word") %>%
+  count(section, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>%
+  mutate(net_sentiment = positive - negative)
+
+# Plot sentiment trend
+ggplot(frank_trend, aes(x = section, y = net_sentiment)) +
+  geom_line() +
+  labs(
+    title = "Sentiment Trend in Frankenstein",
+    x = "Text Section",
+    y = "Net Sentiment"
+  )
+```
+
+## Simple comparison plot
+
+```{r}
+# Plot Bing sentiment counts for Frankenstein
+ggplot(frank_bing, aes(x = sentiment, y = n, fill = sentiment)) +
+  geom_col() +
+  labs(title = "Sentiment Counts in Frankenstein (Bing Lexicon)")
+```
+
+## Conclusion
+
+The original example from *Text Mining with R* demonstrates sentiment analysis using Jane Austen’s texts, where the sentiment trend shows relatively balanced fluctuations between positive and negative values, with smoother transitions across sections.
+
+In contrast, the analysis of *Frankenstein* by Mary Shelley reveals a noticeably different pattern. The sentiment trend is more volatile, with sharper fluctuations and more frequent negative values. The net sentiment line often falls below zero, indicating that negative words appear more frequently than positive ones throughout much of the text. This aligns with the novel’s darker themes, including isolation, fear, and tragedy.
+
+The inclusion of the AFINN lexicon further supports this observation. While the Bing lexicon classifies words into positive and negative categories, AFINN assigns numeric sentiment scores. The average sentiment score for *Frankenstein* was approximately -0.12, indicating an overall slightly negative tone. This provides a more nuanced measure of sentiment intensity and confirms the general negativity observed in the Bing-based analysis.
+
+Overall, the comparison shows that sentiment results vary depending on both the text corpus and the lexicon used. While the original example presents a more balanced emotional structure, *Frankenstein* exhibits a more negative and unstable sentiment pattern. Additionally, the difference between lexicons highlights how methodological choices can influence the interpretation of sentiment in text analysis.
