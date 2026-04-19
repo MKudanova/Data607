@@ -1,0 +1,281 @@
+---
+title: "10B:NobelPrize.org "
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This assignment uses the Nobel Prize API to explore patterns in Nobel Prize awards using structured JSON data. The goal is to move beyond simple summaries and investigate how laureates, prize categories, and countries are connected.
+
+## Approach
+
+The analysis begins by retrieving JSON data from the Nobel Prize API, specifically from the `laureates` and `nobelPrizes` endpoints. These endpoints provide detailed, nested data on individuals and prize records.
+
+The JSON data is loaded into R using the `jsonlite` package and then transformed into tidy data frames using `dplyr` and `tidyr`. Because the API data is nested (e.g., multiple prizes per laureate and multiple affiliations per prize), functions such as `unnest()` are used to flatten the structure into a tabular format suitable for analysis.
+
+Several related data frames are created, including:
+
+1)  a laureates table with demographic information,
+2)  a prize-level table linking individuals to awards,
+3)  and an affiliations table capturing institutional and country information.
+
+These tables are then used to answer four questions. The analysis includes grouping, filtering, and joining across datasets to uncover patterns. At least one question involves comparing birth country and affiliation country, requiring a join between multiple data frames.
+
+The results are presented using tables and visualizations to clearly communicate the findings.
+
+```{r}
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(stringr)
+library(ggplot2)
+library(knitr)
+```
+
+## Helper function
+
+```{r}
+`%||%` <- function(x, y) {
+  if (is.null(x) || length(x) == 0) y else x
+}
+```
+
+## Retrieve JSON data
+
+```{r}
+laureates_url <- "https://api.nobelprize.org/2.1/laureates"
+prizes_url <- "https://api.nobelprize.org/2.1/nobelPrizes"
+
+laureates_raw <- fromJSON(laureates_url, simplifyVector = FALSE)
+prizes_raw <- fromJSON(prizes_url, simplifyVector = FALSE)
+```
+
+## Build tidy data frames
+
+### Laureates table
+
+```{r}
+laureates_tbl <- map_dfr(laureates_raw$laureates, function(x) {
+  tibble(
+    laureate_id = x$id %||% NA_character_,
+    known_name = x$knownName$en %||% NA_character_,
+    given_name = x$givenName$en %||% NA_character_,
+    family_name = x$familyName$en %||% NA_character_,
+    full_name = x$fullName$en %||% NA_character_,
+    gender = x$gender %||% NA_character_,
+    birth_date = x$birth$date %||% NA_character_,
+    birth_year = x$birth$year %||% NA_character_,
+    birth_city = x$birth$place$city$en %||% NA_character_,
+    birth_country = x$birth$place$country$en %||% NA_character_,
+    birth_continent = x$birth$place$continent$en %||% NA_character_,
+    death_date = x$death$date %||% NA_character_
+  )
+})
+
+laureates_tbl %>% slice_head(n = 5)
+```
+
+## Prize-level table
+
+```{r}
+prize_tbl <- map_dfr(laureates_raw$laureates, function(x) {
+  laureate_id <- x$id %||% NA_character_
+  full_name <- x$fullName$en %||% x$knownName$en %||% NA_character_
+
+  if (length(x$nobelPrizes) == 0) return(NULL)
+
+  map_dfr(x$nobelPrizes, function(p) {
+    tibble(
+      laureate_id = laureate_id,
+      full_name = full_name,
+      award_year = p$awardYear %||% NA_character_,
+      category = p$category$en %||% NA_character_,
+      category_full = p$categoryFullName$en %||% NA_character_,
+      portion = p$portion %||% NA_character_,
+      date_awarded = p$dateAwarded %||% NA_character_,
+      prize_status = p$prizeStatus %||% NA_character_,
+      motivation = p$motivation$en %||% NA_character_,
+      prize_amount = p$prizeAmount %||% NA_real_,
+      prize_amount_adjusted = p$prizeAmountAdjusted %||% NA_real_
+    )
+  })
+})
+
+prize_tbl %>% slice_head(n = 5)
+```
+
+## Affiliations table
+
+```{r}
+affiliations_tbl <- map_dfr(laureates_raw$laureates, function(x) {
+  laureate_id <- x$id %||% NA_character_
+  full_name <- x$fullName$en %||% x$knownName$en %||% NA_character_
+
+  if (length(x$nobelPrizes) == 0) return(NULL)
+
+  map_dfr(x$nobelPrizes, function(p) {
+    award_year <- p$awardYear %||% NA_character_
+    category <- p$category$en %||% NA_character_
+
+    if (length(p$affiliations) == 0) return(NULL)
+
+    map_dfr(p$affiliations, function(a) {
+      tibble(
+        laureate_id = laureate_id,
+        full_name = full_name,
+        award_year = award_year,
+        category = category,
+        affiliation_name = a$name$en %||% NA_character_,
+        affiliation_city = a$city$en %||% NA_character_,
+        affiliation_country = a$country$en %||% NA_character_,
+        affiliation_continent = a$continent$en %||% NA_character_
+      )
+    })
+  })
+})
+
+affiliations_tbl %>% slice_head(n = 5)
+```
+
+## Prize-centered table from the Nobel Prizes endpoint
+
+```{r}
+prizes_tbl <- map_dfr(prizes_raw$nobelPrizes, function(x) {
+  tibble(
+    award_year = x$awardYear %||% NA_character_,
+    category = x$category$en %||% NA_character_,
+    category_full = x$categoryFullName$en %||% NA_character_,
+    date_awarded = x$dateAwarded %||% NA_character_,
+    prize_amount = x$prizeAmount %||% NA_real_,
+    prize_amount_adjusted = x$prizeAmountAdjusted %||% NA_real_
+  )
+})
+
+prizes_tbl %>% slice_head(n = 5)
+```
+
+## Question 1
+
+### Which Nobel Prize categories have been awarded most often?
+
+```{r}
+q1 <- prize_tbl %>%
+  count(category, sort = TRUE)
+
+q1 %>%
+  kable(caption = "Number of laureate records by Nobel Prize category")
+
+q1 %>%
+  ggplot(aes(x = reorder(category, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Nobel Prize Categories by Number of Laureate Records",
+    x = "Category",
+    y = "Count"
+  )
+```
+
+### Answer: Chemistry appears most frequently in this dataset, followed by Physics and Peace. Other categories such as Economic Sciences, Literature, and Physiology or Medicine appear less often. This suggests that, within the sampled data, scientific fields, particularly Chemistry, are more prominently represented.
+
+## Question 2
+
+### Which birth countries have produced the most Nobel laureates?
+
+```{r}
+q2 <- laureates_tbl %>%
+  filter(!is.na(birth_country), birth_country != "") %>%
+  count(birth_country, sort = TRUE)
+
+q2 %>%
+  slice_head(n = 15) %>%
+  kable(caption = "Top 15 birth countries by number of laureates")
+```
+
+```{r}
+q2 %>%
+  slice_head(n = 15) %>%
+  ggplot(aes(x = reorder(birth_country, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top 15 Birth Countries of Nobel Laureates",
+    x = "Birth Country",
+    y = "Number of Laureates"
+  )
+```
+
+### Answer: The United States appears most frequently in this dataset, followed by several countries such as Germany, India, Japan, and Prussia with smaller counts. Most other countries appear only once, indicating that Nobel laureates in this sample are concentrated in a few countries, with a long tail of less-represented nations. 
+
+Note: The presence of historical country names such as Prussia and French Algeria reflects changes in geopolitical boundaries over time, which can affect how laureates are categorized by birthplace.
+
+## Question 3
+
+### Which institutions appear most often as Nobel Prize affiliations?
+
+```{r}
+q3 <- affiliations_tbl %>%
+  filter(!is.na(affiliation_name), affiliation_name != "") %>%
+  count(affiliation_name, affiliation_country, sort = TRUE)
+
+q3 %>%
+  slice_head(n = 15) %>%
+  kable(caption = "Top 15 affiliations in Nobel Prize records")
+```
+
+### Answer: Each institution in this dataset appears only once, meaning no single affiliation clearly dominates. This suggests that, within this sample, Nobel Prize winners are distributed across a wide range of institutions rather than concentrated in a few. However, the lack of repeated affiliations is likely due to the limited size of the dataset rather than reflecting the full distribution of Nobel Prize institutions.
+
+## Question 4
+
+### Which birth countries most often differ from the laureate's affiliation country at the time of the award?
+
+```{r}
+birth_vs_affiliation <- laureates_tbl %>%
+  select(laureate_id, full_name, birth_country) %>%
+  inner_join(
+    affiliations_tbl %>%
+      select(laureate_id, award_year, category, affiliation_country),
+    by = "laureate_id"
+  ) %>%
+  filter(
+    !is.na(birth_country), birth_country != "",
+    !is.na(affiliation_country), affiliation_country != "",
+    birth_country != affiliation_country
+  )
+
+q4 <- birth_vs_affiliation %>%
+  count(birth_country, affiliation_country, sort = TRUE)
+
+q4 %>%
+  slice_head(n = 20) %>%
+  kable(caption = "Birth country and affiliation country mismatches")
+```
+
+```{r}
+q4_birth_loss <- birth_vs_affiliation %>%
+  count(birth_country, sort = TRUE)
+
+q4_birth_loss %>%
+  slice_head(n = 15) %>%
+  ggplot(aes(x = reorder(birth_country, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Birth Countries Most Often Different from Award Affiliation Country",
+    x = "Birth Country",
+    y = "Number of Mismatch Records"
+  )
+```
+
+### Answer: The results show that India has the highest number of mismatch cases in this dataset, followed by Prussia, while the remaining birth countries appear only once. The detailed table shows that these mismatches involve affiliations in countries such as the United States, the United Kingdom, Italy, Germany, and Israel. Together, the table and graph suggest that Nobel laureates in this sample often received their awards while affiliated with institutions outside their country of birth.
+
+## Conclusion
+
+This analysis used JSON data from the Nobel Prize API to examine relationships between laureates, prize categories, and countries. After transforming the nested API responses into tidy tables, four questions were explored using filtering, grouping, and joins.
+
+The results showed patterns in prize categories, birth countries, and institutional affiliations within the dataset. The comparison between birth country and affiliation country indicated that many laureates received their awards while affiliated with institutions outside their country of birth, highlighting the international nature of Nobel recognition.
+
+Because the analysis is based on a limited sample of API data, the findings should be interpreted as illustrative rather than definitive. Overall, this assignment demonstrates how nested JSON data can be converted into tidy data frames in R and how combining multiple tables enables more meaningful analysis beyond simple counts.
