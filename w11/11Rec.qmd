@@ -1,1 +1,20 @@
+---
+title: "11 Personalized Recommender"
+author: "Madina Kdanova"
+format: html
+editor: visual
+---
 
+## Introduction
+
+In this assignment, I build a personalized recommendation system using movie rating data. The model focuses on each user’s individual preferences rather than general trends.
+
+The goal is to recommend new movies that a user is likely to enjoy based on their past ratings. By using patterns in how users rate similar movies, the system can generate more relevant and personalized recommendations.
+
+## Approach
+
+This project uses an item-to-item collaborative filtering approach implemented with the recommenderlab package in R. The dataset, originally in a user–item format, is converted into a rating matrix where rows represent users and columns represent movies. Missing values indicate items that have not yet been rated.
+
+The data is split into training and testing sets using a hold-out validation method. The model is trained on the training set, where it learns similarities between items based on user rating patterns. These similarities are then used to predict ratings for unseen items in the test set.
+
+To evaluate performance, predicted ratings are compared with actual ratings from the test data using error metrics such as Root Mean Squared Error (RMSE) and Mean Absolute Error (MAE). In addition to numerical evaluation, the model generates top-N recommendations for each user, demonstrating how the system provides personalized suggestions based on individual preferences.
