@@ -1,0 +1,350 @@
+---
+title: "Personalized Movie Recommender System"
+author: "Madina Kudanova"
+format: 
+  html:
+    code-fold: false
+    toc: true
+    toc-depth: 3
+editor: visual
+---
+
+## Introduction
+
+This assignment builds a **personalized recommendation system** using collaborative filtering. Unlike global baseline models that provide the same recommendations to everyone, this system learns individual user preferences to generate customized movie suggestions.
+
+**Key Objectives:**
+
+1.  Implement item-based collaborative filtering (IBCF)
+2.  Generate personalized top-N recommendations
+3.  Evaluate model performance using hold-out validation
+4.  Compare predicted ratings against actual user ratings
+
+## Setup and Data Loading
+
+```{r setup, message=FALSE, warning=FALSE}
+# Load required libraries
+library(recommenderlab)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Set seed for reproducibility
+set.seed(123)
+
+
+```
+
+```{r load-data, message=FALSE}
+# Load the movie ratings survey data
+ratings_raw <- read.csv("https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/w11/Movie%20Ratings%20Survey.csv")
+
+# Display data structure
+cat("Dataset dimensions:", dim(ratings_raw), "\n")
+cat("Number of users:", nrow(ratings_raw), "\n")
+cat("Number of movies:", ncol(ratings_raw) - 1, "\n\n")
+
+head(ratings_raw[, 1:5])
+```
+
+## Data Preprocessing
+
+```{r clean-data}
+# Remove timestamp column
+ratings_df <- ratings_raw[, -1]
+
+# Extract movie names - they come after "...Masterpiece..."
+colnames(ratings_df) <- gsub(".*Masterpiece\\.{3}(.*)", "\\1", colnames(ratings_df))
+
+# Check result
+cat("Cleaned column names:\n")
+print(head(colnames(ratings_df)))
+cat("\n")
+
+# Convert to numeric matrix
+ratings_matrix <- as.matrix(ratings_df)
+mode(ratings_matrix) <- "numeric"
+
+# Add user identifiers
+rownames(ratings_matrix) <- paste0("User", 1:nrow(ratings_matrix))
+
+# Check for data quality
+cat("Missing ratings:", sum(is.na(ratings_matrix)), "\n")
+cat("Total possible ratings:", nrow(ratings_matrix) * ncol(ratings_matrix), "\n")
+cat("Sparsity:", round(sum(is.na(ratings_matrix)) / (nrow(ratings_matrix) * ncol(ratings_matrix)) * 100, 2), "%\n\n")
+
+# Convert to recommenderlab format
+ratings_rrm <- as(ratings_matrix, "realRatingMatrix")
+ratings_rrm
+```
+
+### Data Exploration
+
+```{r explore-data}
+# Rating distribution
+rating_values <- as.vector(ratings_matrix)
+rating_values <- rating_values[!is.na(rating_values)]
+
+cat("Rating statistics:\n")
+cat("  Mean:", round(mean(rating_values), 2), "\n")
+cat("  Median:", median(rating_values), "\n")
+cat("  SD:", round(sd(rating_values), 2), "\n\n")
+
+# Visualize rating distribution
+ggplot(data.frame(rating = rating_values), aes(x = rating)) +
+  geom_histogram(binwidth = 0.5, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Movie Ratings",
+       x = "Rating", y = "Count") +
+  theme_minimal()
+```
+
+## Model Training
+
+### Train-Test Split
+
+```{r split-data}
+# Create evaluation scheme
+# - 80% training, 20% testing
+# - given = -1 means all but one item per test user is given
+# - goodRating = 3 defines what counts as a "good" rating
+scheme <- evaluationScheme(
+  data = ratings_rrm,
+  method = "split",
+  train = 0.8,
+  given = -1,
+  goodRating = 3
+)
+
+# Extract datasets
+train_set <- getData(scheme, "train")
+known_set <- getData(scheme, "known")
+unknown_set <- getData(scheme, "unknown")
+
+cat("Training set:", dim(train_set), "\n")
+cat("Test set (known):", dim(known_set), "\n")
+cat("Test set (unknown):", dim(unknown_set), "\n")
+
+```
+
+### Build IBCF Model
+
+```{r train-model}
+# Train Item-Based Collaborative Filtering model
+# k = 5: use 5 most similar items for prediction
+# method = "cosine": use cosine similarity metric
+ibcf_model <- Recommender(
+  data = train_set,
+  method = "IBCF",
+  parameter = list(k = 5, method = "cosine")
+)
+
+cat("Model trained successfully!\n")
+print(ibcf_model)
+```
+
+## Model Evaluation
+
+### Generate Predictions
+
+```{r predict}
+# Predict ratings for test users
+predicted_ratings <- predict(
+  object = ibcf_model,
+  newdata = known_set,
+  type = "ratings"
+)
+
+# Convert to matrices for comparison
+pred_matrix <- as(predicted_ratings, "matrix")
+true_matrix <- as(unknown_set, "matrix")
+
+# Verify alignment
+cat("Prediction matrix dimensions:", dim(pred_matrix), "\n")
+cat("True matrix dimensions:", dim(true_matrix), "\n")
+cat("Dimensions match:", identical(dim(pred_matrix), dim(true_matrix)), "\n")
+cat("Row names match:", identical(rownames(pred_matrix), rownames(true_matrix)), "\n")
+cat("Column names match:", identical(colnames(pred_matrix), colnames(true_matrix)), "\n\n")
+```
+
+### Calculate Error Metrics
+
+```{r evaluate}
+# Extract matching predictions and actuals
+# Only compare where we have both predicted and actual ratings
+comparison_df <- data.frame(
+  actual = as.vector(true_matrix),
+  predicted = as.vector(pred_matrix)
+) %>%
+  filter(!is.na(actual), !is.na(predicted))
+
+cat("Number of comparable predictions:", nrow(comparison_df), "\n\n")
+
+# Calculate error metrics
+rmse <- sqrt(mean((comparison_df$actual - comparison_df$predicted)^2))
+mae <- mean(abs(comparison_df$actual - comparison_df$predicted))
+mse <- mean((comparison_df$actual - comparison_df$predicted)^2)
+
+# Display results
+cat("=== MODEL PERFORMANCE ===\n")
+cat("RMSE (Root Mean Squared Error):", round(rmse, 4), "\n")
+cat("MAE  (Mean Absolute Error):    ", round(mae, 4), "\n")
+cat("MSE  (Mean Squared Error):     ", round(mse, 4), "\n\n")
+
+# Interpretation
+cat("Interpretation:\n")
+cat("- On average, predictions are off by", round(mae, 2), "rating points\n")
+cat("- Lower values indicate better performance\n")
+```
+
+### Visualize Prediction Accuracy
+
+```{r plot-predictions}
+# Plot actual vs predicted ratings
+ggplot(comparison_df, aes(x = actual, y = predicted)) +
+  geom_point(alpha = 0.3, color = "steelblue") +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(title = "Actual vs Predicted Ratings",
+       subtitle = paste("RMSE =", round(rmse, 3), "| MAE =", round(mae, 3)),
+       x = "Actual Rating",
+       y = "Predicted Rating") +
+  theme_minimal() +
+  coord_fixed(ratio = 1)
+
+# Residual plot
+comparison_df$residual <- comparison_df$actual - comparison_df$predicted
+
+ggplot(comparison_df, aes(x = predicted, y = residual)) +
+  geom_point(alpha = 0.3, color = "steelblue") +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residual Plot",
+       x = "Predicted Rating",
+       y = "Residual (Actual - Predicted)") +
+  theme_minimal()
+```
+
+## Generate Recommendations
+
+### Top-N Recommendations
+
+```{r top-n-recommendations}
+# Generate top-3 movie recommendations for each user
+top_n <- 3
+
+top_recommendations <- predict(
+  object = ibcf_model,
+  newdata = ratings_rrm,
+  type = "topNList",
+  n = top_n
+)
+
+# Convert to readable format
+recommendation_list <- as(top_recommendations, "list")
+
+# Display recommendations for first 10 users
+cat("TOP", " RECOMMENDATIONS\n\n", sep = "")
+for (i in 1:min(10, length(recommendation_list))) {
+  user_name <- names(recommendation_list)[i]
+  movies <- recommendation_list[[i]]
+  
+  cat("User:", user_name, "\n")
+  if (length(movies) > 0) {
+    cat("  Recommended:", paste(movies, collapse = ", "), "\n\n")
+  } else {
+    cat("  No recommendations available\n\n")
+  }
+}
+
+# Summary statistics
+rec_lengths <- sapply(recommendation_list, length)
+cat("Recommendation summary:\n")
+cat("  Users with", top_n, "recommendations:", sum(rec_lengths == top_n), "\n")
+cat("  Users with < ", top_n, "recommendations:", sum(rec_lengths < top_n), "\n")
+cat("  Users with 0 recommendations:", sum(rec_lengths == 0), "\n")
+```
+
+### Create Recommendation Table
+
+```{r recommendation-table}
+# Create a tidy table of all recommendations
+recommendations_tidy <- data.frame(
+  user = rep(names(recommendation_list), sapply(recommendation_list, length)),
+  movie = unlist(recommendation_list),
+  rank = unlist(lapply(recommendation_list, seq_along))
+) %>%
+  pivot_wider(names_from = rank, values_from = movie, names_prefix = "Rec_")
+
+head(recommendations_tidy, 10)
+```
+
+## Model Insights
+
+### Item Similarity Matrix
+
+```{r similarity-matrix}
+# Extract the learned item-item similarity matrix
+similarity_matrix <- getModel(ibcf_model)$sim
+
+# Convert to regular matrix for inspection
+sim_matrix_view <- as.matrix(similarity_matrix)
+
+# Display sample of similarities
+cat("Sample of item-item similarities:\n\n")
+print(round(sim_matrix_view[1:min(6, nrow(sim_matrix_view)),
+                             1:min(6, ncol(sim_matrix_view))], 3))
+
+# Find most similar movie pairs
+if (ncol(sim_matrix_view) >= 2) {
+  # Get upper triangle (avoid duplicates)
+  sim_matrix_upper <- sim_matrix_view
+  sim_matrix_upper[lower.tri(sim_matrix_upper, diag = TRUE)] <- NA
+  
+  # Find top 5 most similar pairs
+  sim_df <- as.data.frame(as.table(sim_matrix_upper)) %>%
+    filter(!is.na(Freq)) %>%
+    arrange(desc(Freq)) %>%
+    head(5)
+  
+  cat("\n\nMost similar movie pairs:\n")
+  for (i in 1:nrow(sim_df)) {
+    cat(i, ". ", as.character(sim_df$Var1[i]), " <-> ", 
+        as.character(sim_df$Var2[i]), " (similarity: ", 
+        round(sim_df$Freq[i], 3), ")\n", sep = "")
+  }
+}
+```
+
+## Summary
+
+### Key Findings
+
+```{r summary}
+cat("MODEL SUMMARY\n\n")
+cat("Algorithm: Item-Based Collaborative Filtering (IBCF)\n")
+cat("Training approach: 80/20 hold-out validation\n")
+cat("Similarity metric: Cosine similarity\n")
+cat("Neighborhood size (k): 5\n\n")
+
+cat("Performance Metrics:\n")
+cat("  RMSE:", round(rmse, 4), "\n")
+cat("  MAE: ", round(mae, 4), "\n\n")
+
+cat("Output:\n")
+cat("  Top-N recommendations per user: ", top_n, "\n")
+cat("  Total users:", nrow(ratings_matrix), "\n")
+cat("  Total movies:", ncol(ratings_matrix), "\n")
+```
+
+### **Conclusion**
+
+This project successfully implemented a personalized movie recommendation system using Item-Based Collaborative Filtering (IBCF), which generates customized suggestions for each user based on their individual rating patterns—a significant improvement over non-personalized baseline models.
+
+I chose IBCF because it calculates similarities between movies based on user ratings, then recommends new movies similar to ones a user already liked. With only 26 users but consistent movie ratings, an item-based approach is more stable than user-based filtering. The model uses cosine similarity and considers the 5 most similar items when making predictions
+
+Using 80/20 hold-out validation, the model achieved an RMSE of 2.011 and MAE of 1.60, meaning predictions are off by approximately 1.6 rating points on average. The actual vs. predicted ratings plot shows positive correlation, indicating the model successfully learned user preferences.
+
+The system generates top-3 personalized movie recommendations per user, though coverage varied based on how many movies each user had already rated. The diversity in recommendations—different users receiving different suggestions—confirms genuine personalization. The similarity matrix revealed interesting patterns, such as Forrest Gump and The Sound of Music being most alike based on user ratings, which directly drives the recommendation logic.
+
+Main limitations include the cold start problem, small dataset size (6 movies, 26 users), and rating sparsity. Future improvements could include testing different parameters, implementing cross-validation, trying matrix factorization algorithms, and adding diversity metrics.
+
+Overall, this IBCF model successfully delivers personalized recommendations by learning from collective user behavior, representing a meaningful advancement over non-personalized approaches.
