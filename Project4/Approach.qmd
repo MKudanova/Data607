@@ -1,1 +1,14 @@
+---
+title: "Project4"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
 
+## Introduction
+
+This assignment focuses on building a text classification model that can distinguish between spam and non-spam emails based on their content. Spam detection is a widely used application of machine learning, where patterns in text are learned from previously labeled data and applied to new messages. The goal is to demonstrate how unstructured text data can be processed, transformed into numerical features, and used to train a predictive model. By using a labeled email dataset, this work shows how training documents can be used to classify unseen documents and evaluate the effectiveness of the model through standard performance metrics.
+
+## Approach
+
+In this project, I will build a text classification model to distinguish between spam and non-spam emails using a labeled dataset. I will begin by downloading and extracting the SpamAssassin corpus, then reading each email file into a dataset and assigning labels based on whether the message belongs to the spam or ham category. After combining all documents into a single data frame, I will clean and preprocess the text by converting it to lowercase, removing punctuation and stopwords, and tokenizing the text into individual terms. Next, I will transform the cleaned text into a numerical representation using a document-term matrix or TF-IDF so that it can be used for modeling. I will then split the data into training and testing sets, using the training portion to fit a classification model such as Naive Bayes. Once the model is trained, I will apply it to the test data to generate predictions and evaluate its performance using a confusion matrix and accuracy metrics. Finally, I may test the model on a few additional unseen examples to demonstrate how it can classify new documents based on patterns learned from the training data.
