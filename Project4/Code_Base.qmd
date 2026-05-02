@@ -1,0 +1,171 @@
+---
+title: "Project4"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This assignment focuses on building a text classification model that can distinguish between spam and non-spam emails based on their content. Spam detection is a widely used application of machine learning, where patterns in text are learned from previously labeled data and applied to new messages. The goal is to demonstrate how unstructured text data can be processed, transformed into numerical features, and used to train a predictive model. By using a labeled email dataset, this work shows how training documents can be used to classify unseen documents and evaluate the effectiveness of the model through standard performance metrics.
+
+## Approach
+
+For this, I built a binary classification model using the SpamAssassin corpus. The dataset consists of individual email files organized into spam and ham categories, which are read into R and combined into a single data frame with corresponding labels. The text data is preprocessed by converting it to lowercase, removing punctuation, numbers, and common stopwords, and reducing extra whitespace. The cleaned text is then transformed into a document-term matrix, which represents each email as a set of word-based features. The dataset is split into training and testing sets, with the training data used to fit a Naive Bayes classifier. The model learns the probability of words appearing in spam versus non-spam emails and uses these patterns to classify new messages. Model performance is evaluated on the test set using a confusion matrix and accuracy. This approach demonstrates how unstructured text data can be converted into structured features and used effectively for predictive modeling.
+
+```{r message=FALSE}
+library(tidyverse)
+library(tm) # text preprocessing (corpus, cleaning, document-term matrix)
+library(e1071) # machine learning algorithms, including Naive Bayes classifier
+
+```
+
+## Load, Label, and Combine Email Data
+
+```{r}
+
+# define paths to folders containing spam and ham email files
+spam_path <- "spam"       
+ham_path  <- "easy_ham"   
+
+# verify that dataset folders exist (sanity check)
+dir.exists(spam_path)
+dir.exists(ham_path)
+
+# get list of file paths
+spam_files <- list.files(spam_path, full.names = TRUE)
+ham_files  <- list.files(ham_path,  full.names = TRUE)
+
+# check if files were found 
+length(spam_files)
+length(ham_files)
+
+# function to read emails
+read_email <- function(file) {
+  text <- readLines(file, warn = FALSE, encoding = "latin1")
+  text <- iconv(text, from = "latin1", to = "UTF-8", sub = "")
+  paste(text, collapse = " ")
+}
+
+# create datasets
+spam_df <- tibble(
+  text = map_chr(spam_files, read_email),
+  label = "spam"
+)
+
+ham_df <- tibble(
+  text = map_chr(ham_files, read_email),
+  label = "ham"
+)
+
+# combine
+emails <- bind_rows(spam_df, ham_df)
+emails$label <- factor(emails$label)
+
+# check result
+head(emails)
+table(emails$label)
+```
+
+## Split Data into Training and Testing Sets
+
+```{r}
+# split data into training and testing sets
+set.seed(123)
+
+train_index <- sample(
+  seq_len(nrow(emails)),
+  size = 0.8 * nrow(emails)
+)
+
+train_data <- emails[train_index, ]
+test_data  <- emails[-train_index, ]
+
+# check split sizes
+nrow(train_data)
+nrow(test_data)
+
+# check class balance in each split
+table(train_data$label)
+table(test_data$label)
+```
+
+## Text Cleaning
+
+```{r}
+# convert text data into corpus objects
+train_corpus <- VCorpus(VectorSource(train_data$text))
+test_corpus  <- VCorpus(VectorSource(test_data$text))
+
+# define text cleaning function
+clean_corpus <- function(corpus) {
+  corpus %>%
+    tm_map(content_transformer(tolower)) %>%
+    tm_map(removePunctuation) %>%
+    tm_map(removeNumbers) %>%
+    tm_map(removeWords, stopwords("english")) %>%
+    tm_map(stripWhitespace)
+}
+
+# apply cleaning to training and testing corpus
+train_corpus_clean <- clean_corpus(train_corpus)
+test_corpus_clean  <- clean_corpus(test_corpus)
+
+```
+
+## Create Document-Term Matrix
+
+```{r}
+# create document-term matrix from cleaned training text
+train_dtm <- DocumentTermMatrix(train_corpus_clean)
+
+# remove very rare words to reduce noise
+train_dtm <- removeSparseTerms(train_dtm, 0.99)
+
+# create test document-term matrix using same training vocabulary
+test_dtm <- DocumentTermMatrix(
+  test_corpus_clean,
+  control = list(dictionary = Terms(train_dtm))
+)
+
+# check dimensions
+dim(train_dtm)
+dim(test_dtm)
+```
+
+## Model Training and Evaluation
+
+```{r}
+# convert word counts into Yes/No values for Naive Bayes
+convert_counts <- function(x) {
+  x <- ifelse(x > 0, "Yes", "No")
+  factor(x, levels = c("No", "Yes"))
+}
+
+train_matrix <- apply(as.matrix(train_dtm), 2, convert_counts)
+test_matrix  <- apply(as.matrix(test_dtm), 2, convert_counts)
+
+# train Naive Bayes model
+nb_model <- naiveBayes(train_matrix, train_data$label)
+
+# predict labels for test data
+predictions <- predict(nb_model, test_matrix)
+
+# confusion matrix
+table(Predicted = predictions, Actual = test_data$label)
+
+# accuracy
+mean(predictions == test_data$label)
+```
+
+## **Conclusion**
+
+This project demonstrated how a Naive Bayes classifier can be applied to classify emails as spam or non-spam using their textual content. By preprocessing the raw email data and converting it into a document-term matrix, unstructured text was transformed into a format suitable for machine learning.
+
+The model achieved very high accuracy on the test set, correctly classifying the vast majority of emails with only a small number of errors. This shows that word frequency patterns are highly effective for distinguishing between spam and legitimate messages, and that Naive Bayes is a strong baseline method for text classification tasks.
+
+While the results are strong, the model is based on a relatively simple dataset, and performance may vary with more complex or diverse data. Future improvements could include experimenting with different feature representations or more advanced models to further enhance performance.
+
+**Dataset source: https://spamassassin.apache.org/old/publiccorpus/**
+
+**Note:** The dataset is stored locally due to its file-based structure and size. To reproduce this analysis, download the SpamAssassin corpus, extract the files, and place the "spam" and "easy_ham" folders in the project directory.
