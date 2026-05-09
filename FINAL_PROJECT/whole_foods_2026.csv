@@ -77,6 +77,7 @@ date,store,item,price,subtotal,tax,total
 02/14/2026,Whole Foods Manhattan,Banana 2.27lb @ $0.59/lb,1.34,,,
 02/14/2026,Whole Foods Manhattan,OG 0.31lb @ $1.99/lb,0.62,,,
 02/14/2026,Whole Foods Manhattan,Andrew's Salads OG Jalape,3.56,,,
+02/14/2026,Whole Foods Manhattan,Satfr Wild Arugula,3.99,,, 
 02/14/2026,Whole Foods Manhattan,Savings with Prime,-1.50,59.25,1.78,61.03
 02/23/2026,Whole Foods Manhattan,Russe Plum 0.35lb @ $2.49/lb,1.29,,,
 02/23/2026,Whole Foods Manhattan,Banana Bread 2.63lb @ $1.69/lb,4.44,,,
@@ -116,10 +117,12 @@ date,store,item,price,subtotal,tax,total
 04/25/2026,Whole Foods Manhattan,Milk OG HEP Almond Milk,5.38,,,
 04/25/2026,Whole Foods Manhattan,OG Sour Cream,5.57,,,
 04/25/2026,Whole Foods Manhattan,Banana 3.11lb @ $0.59/lb,1.83,,,
+04/25/2026,Whole Foods Manhattan,Satfr Wild Arugula,3.99,,, 
 04/25/2026,Whole Foods Manhattan,Broccoli Crowns 2.63lb,3.59,,,
 04/25/2026,Whole Foods Manhattan,OG 365 Almond Milk,3.59,,,
 04/25/2026,Whole Foods Manhattan,Savings with Prime,-1.50,49.34,3.10,52.44
 03/12/2026,Whole Foods Manhattan,OG Lemon 10 Cucumber,5.69,,,
+03/12/2026,Whole Foods Manhattan,Vilr OG Large Eggs,15.29,,,
 03/12/2026,Whole Foods Manhattan,Green Mall,6.50,,,
 03/12/2026,Whole Foods Manhattan,Sard 3.87 @ $1.75/lb,6.77,,,
 03/12/2026,Whole Foods Manhattan,Sard 4.13 @ $1.99/lb,8.22,,,
@@ -131,3 +134,6 @@ date,store,item,price,subtotal,tax,total
 04/05/2026,Whole Foods Manhattan,Dec Fusilli Pasta,3.39,,,
 04/05/2025,Whole Foods Manhattan,Banana 4lb @ $0.69/lb,2.76,,,
 05/01/2026,Whole Foods Manhattan,Banana 3.11lb @ $0.69/lb,2.15,,,
+04/20/2026,Whole Foods Manhattan,Vilr OG Large Eggs,15.29,,,
+04/28/2026,Whole Foods Manhattan,Vilr OG Large Eggs,15.29,,,
+04/28/2026,Whole Foods Manhattan,Satfr Wild Arugula,3.99,,, 
