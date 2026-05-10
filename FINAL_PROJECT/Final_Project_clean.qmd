@@ -1,0 +1,817 @@
+---
+title: "Tracking Grocery Spending from a Consumer Perspective Over a Three-Year Period"
+author: "Madina Kudanova"
+format: html
+editor: visual
+---
+
+```{r}
+knitr::include_graphics("https://raw.githubusercontent.com/MKudanova/Data607/main/FINAL_PROJECT/pics/IMG_7961.jpeg")
+```
+
+## Introduction
+
+This project analyzes personal grocery receipts from Whole Foods collected between 2024 and 2026, comparing observed price changes to official U.S. inflation metrics (BLS CPI "Food at home"). The analysis is conducted entirely from a regular consumer's perspective and does not claim to be a representative study of broader consumer behavior.
+
+## Motivation
+
+Over the past three years, I personally collected and preserved grocery receipts from my regular Whole Foods shopping trips with the intent to one day analyze my own spending patterns. This project provided the opportunity to transform that personal archive into a structured longitudinal dataset and apply data science methods to a question that directly affects everyday life: how much have grocery prices actually changed, and does the official inflation rate reflect what real consumers experience at the checkout line?
+
+## Research Questions
+
+How have prices of consistently purchased grocery items changed between 2024 and 2026, and how do these changes compare to the official U.S. food inflation rate reported by the Bureau of Labor Statistics?
+
+As a secondary inquiry, this project examines whether Amazon Prime membership discounts at Whole Foods offset rising prices over the same period.
+
+## Data Source
+
+**Primary:** Self-constructed dataset derived from personal Whole Foods receipts (2024–2026), digitized via OCR photograph extraction, and uploaded to a GitHub repository. **Secondary:** BLS Consumer Price Index "Food at home" series (CUUR0000SAF11), downloaded directly from the U.S. Bureau of Labor Statistics for the same time period.
+
+## Approach
+
+This project follows the OSEMN data science workflow (Obtain, Scrub, Explore, Model, and Interpret). First, receipt data was obtained via personal photographs and digitized for OCR (Optical Character Recognition) extraction, then stored as CSV files on GitHub alongside BLS CPI data downloaded from data.bls.gov. Next, the data was scrubbed, dates were standardized, non-food rows removed, per-unit prices extracted from weighted items, and OCR errors corrected via a manually verified synonym lookup table. The data was then explored through monthly price trend visualizations for each basket item across 2024, 2025, and 2026, and a 5-item personal basket was constructed from consistently purchased products. Following that, a year-over-year personal price change rate was calculated using an equal-weighted basket and compared to the BLS Food at Home CPI. Finally, a secondary analysis examined Amazon Prime savings trends at Whole Foods over the same period to assess whether membership discounts offset rising prices.
+
+## Code Base
+
+```{r message=FALSE}
+library(tidyverse)   # data manipulation and ggplot2
+library(lubridate)   # date handling
+library(stringdist)  # fuzzy string matching
+
+```
+
+### Step 1: Data Cleaning
+
+```{r}
+base_url <- "https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/FINAL_PROJECT/"
+
+wf_2024 <- read_csv(paste0(base_url, "whole_foods_2024.csv"))
+wf_2025 <- read_csv(paste0(base_url, "whole_foods_2025_updated.csv"))
+wf_2026 <- read_csv(paste0(base_url, "whole_foods_2026.csv"))
+
+head(wf_2024)
+head(wf_2025)
+head(wf_2026)
+```
+
+The receipt data loads successfully across all three years. Each file contains transaction-level records with dates, items, and prices.
+
+### Step 3: Merging dataframes
+
+```{r}
+master <- bind_rows(
+  wf_2024 %>% select(date, store, item, price) %>% mutate(price = as.numeric(price)),
+  wf_2025 %>% select(date, store, item, price) %>% mutate(price = as.numeric(price)),
+  wf_2026 %>% select(date, store, item, price) %>% mutate(price = as.numeric(price))
+) %>%
+  mutate(date = mdy(date))
+
+head(master)
+
+
+```
+
+```{r}
+
+master <- master %>%
+  arrange(date)
+
+head(master, 20)
+```
+
+Data is sorted chronologically for easier temporal analysis.
+
+### Step 4: Standardizing
+
+**Separating Prime savings into their own table, then removing non-food rows (savings, bag fees, deposits, tax) from the main dataset.**
+
+```{r}
+
+master <- master %>%
+  mutate(
+    weight_lb    = as.numeric(str_extract(item, "\\d+\\.?\\d*(?=\\s*lb)")),
+    price_per_lb = as.numeric(str_extract(item, "(?<=@\\s\\$)\\d+\\.?\\d*")),
+    quantity     = as.numeric(str_extract(item, "(?i)(?<=qty\\s)\\d+"))
+  )
+
+master %>%
+  filter(!is.na(price_per_lb)) %>%
+  select(date, item, price, weight_lb, price_per_lb) %>%
+  head(20)
+```
+
+```{r}
+prime_savings <- master %>%
+  filter(str_detect(tolower(item), "saving|prime")) %>%
+  mutate(savings_amount = abs(price))
+
+master_clean <- master %>%
+  filter(
+    !str_detect(tolower(item), "saving|prime"),
+    !str_detect(tolower(item), "bag fee|bag charge"),
+    !str_detect(tolower(item), "container deposit"),
+    !str_detect(tolower(item), "tax"),
+    !is.na(price),
+    price > 0
+  )
+
+cat("Total rows before cleaning:", nrow(master), "\n")
+cat("Total rows after cleaning:", nrow(master_clean), "\n")
+cat("Prime savings rows:", nrow(prime_savings), "\n")
+head(master_clean, 20)
+```
+
+Non-food items (fees, taxes, discounts) are separated into their own table. The cleaned dataset removes approximately 10% of rows, leaving only actual grocery items for analysis.
+
+### Step 5: Finding items that constantly appear in all three years
+
+```{r}
+#recurring-items
+
+synonyms <- tribble(
+  ~item_clean,                  ~item_standard,
+  "vilfr og large eggs",        "Vital Farms Organic Eggs 18pk",
+  "vilr og large eggs",         "Vital Farms Organic Eggs 18pk",
+  "vell new almond milk",       "Malk Almond Milk",
+  "malk og hpp almond milk",    "Malk Almond Milk",
+  "walk og hep almond milk",    "Malk Almond Milk",
+  "milk og hep almond milk",    "Malk Almond Milk",
+  "banana",                     "Banana",
+  "avocado hass",               "Avocado (4 Count)",
+  "mas avocado hass",           "Avocado (4 Count)",
+  "vilr og avocado",            "Avocado (4 Count)",
+  "satfr wild arugula clam",    "Satur Farms Wild Arugula",
+  "satfr wild arugula",         "Satur Farms Wild Arugula"
+)
+
+recurring <- master_clean %>%
+  mutate(
+    item_clean = item %>%
+      tolower() %>%
+      str_remove_all("\\d+\\.?\\d*\\s*(lb|oz|kg|g)") %>%
+      str_remove_all("@\\s*\\$\\d+\\.?\\d*") %>%
+      str_remove_all("^\\d+\\s*x\\s*|^qty\\s*\\d+\\s*|^\\d+\\s*@\\s*") %>%
+      str_remove_all("^(og|wbo|wb|weg|wfm|365wfm|365|wf|wbd)\\s*") %>%
+      str_remove_all("\\s*/\\s*(lb|oz|kg|g)$") %>%
+      str_squish()
+  ) %>%
+  left_join(synonyms, by = "item_clean") %>%
+  filter(!is.na(item_standard)) %>%
+  group_by(item_standard) %>%
+  summarise(
+    years_present   = n_distinct(year(date)),
+    total_purchases = n(),
+    .groups = "drop"
+  ) %>%
+  filter(years_present == 3) %>%
+  arrange(desc(total_purchases))
+
+print(recurring, n = Inf)
+```
+
+The manual synonym table maps OCR errors to standardized product names. Five items appear consistently across all three years: eggs, almond milk, bananas, avocados, and arugula. These form the basis of our price tracking.
+
+### Step 6: Building the Basket Table
+
+```{r}
+#| label: build-basket
+
+basket <- master_clean %>%
+  mutate(
+    item_clean = item %>%
+      tolower() %>%
+      str_remove_all("\\d+\\.?\\d*\\s*(lb|oz|kg|g)") %>%
+      str_remove_all("@\\s*\\$\\d+\\.?\\d*") %>%
+      str_remove_all("^\\d+\\s*x\\s*|^qty\\s*\\d+\\s*|^\\d+\\s*@\\s*") %>%
+      str_remove_all("^(og|wbo|wb|weg|wfm|365wfm|365|wf|wbd)\\s*") %>%
+      str_remove_all("\\s*/\\s*(lb|oz|kg|g)$") %>%
+      str_squish()
+  ) %>%
+  left_join(synonyms, by = "item_clean") %>%
+  filter(!is.na(item_standard)) %>%
+  filter(
+    !(item_standard == "Vital Farms Organic Eggs 18pk" & price < 11),
+    !(item_standard == "Malk Almond Milk" & (price < 5.50 | price > 8.00)),
+    !(item_standard == "Satur Farms Wild Arugula" & price > 4.50)
+  ) %>%
+  mutate(
+    unit_price = case_when(
+      item_standard == "Banana" ~ price_per_lb,
+      TRUE                      ~ price
+    ),
+    price_basis = case_when(
+      item_standard == "Banana"                      ~ "per lb",
+      item_standard == "Vital Farms Organic Eggs 18pk" ~ "per pack",
+      TRUE                                           ~ "per unit"
+    ),
+    year      = year(date),
+    month_num = month(date),
+    month     = month(date, label = TRUE, abbr = FALSE)
+  ) %>%
+  filter(!is.na(unit_price)) %>%
+  select(date, year, month_num, month, item,
+         item_standard, price, weight_lb, price_per_lb,
+         unit_price, price_basis)
+
+cat("Basket rows:", nrow(basket), "\n")
+basket %>% count(item_standard, year) %>% print()
+```
+
+Per-unit prices are calculated (normalized by weight or quantity). The basket table contains \~1,200 transactions for the five consistent items, with prices standardized to allow fair comparisons.
+
+### Step 7: Analysis
+
+### **Basket 2024**
+
+```{r}
+basket_2024 <- basket %>%
+  filter(year == 2024) %>%
+  group_by(item_standard, month_num, month) %>%
+  summarise(
+    avg_price = mean(unit_price, na.rm = TRUE),
+    n         = n(),
+    .groups   = "drop"
+  ) %>%
+  arrange(item_standard, month_num)
+
+basket_2024 %>%
+  knitr::kable(
+    caption = "2024 Monthly Average Prices — Personal Basket",
+    col.names = c("Item", "Month #", "Month", "Avg Price ($)", "Purchases")
+  )
+```
+
+### Chart 2024
+
+```{r}
+basket_colors <- c(
+  "Avocado Hass"                  = "#2D6A4F",
+  "Banana"                        = "#E9C46A",
+  "Malk Almond Milk"              = "#A8DADC",
+  "Satur Farms Wild Arugula"      = "#52B788",
+  "Vital Farms Organic Eggs 18pk" = "#E76F51"
+)
+
+basket %>%
+  filter(year == 2024) %>%
+  group_by(item_standard, month_num) %>%
+  summarise(avg_price = mean(unit_price, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = month_num, y = avg_price,
+             color = item_standard, group = item_standard)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 4, alpha = 0.9) +
+  facet_wrap(~ item_standard, scales = "free_y", ncol = 3) +
+  scale_x_continuous(breaks = 1:12, labels = month.abb) +
+  scale_color_manual(values = basket_colors) +
+  labs(
+    title    = "2024 Price Trends — Personal Grocery Basket",
+    subtitle = "Whole Foods Manhattan · Normalized unit prices",
+    x        = NULL,
+    y        = "Unit Price ($)",
+    caption  = "Source: Personal grocery receipts · Analysis: Consumer Inflation Study"
+  ) +
+  theme_minimal(base_size = 13) +
+theme(
+    legend.position    = "none",
+    strip.text         = element_text(face = "bold", size = 11),
+    plot.title         = element_text(face = "bold", size = 16),
+    plot.subtitle      = element_text(color = "grey40", size = 11),
+    plot.caption       = element_text(color = "grey50", size = 9),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    plot.background    = element_rect(fill = "white", color = NA),
+    panel.spacing      = unit(1.5, "lines"),
+    axis.text.x        = element_blank(),
+    axis.ticks.x       = element_blank()
+  )
+```
+
+### **Basket 2025**
+
+```{r}
+basket %>%
+  filter(year == 2025) %>%
+  group_by(item_standard, month_num, month) %>%
+  summarise(
+    avg_price = mean(unit_price, na.rm = TRUE),
+    n         = n(),
+    .groups   = "drop"
+  ) %>%
+  arrange(item_standard, month_num) %>%
+  knitr::kable(
+    caption = "2025 Monthly Average Prices — Personal Basket",
+    col.names = c("Item", "Month #", "Month", "Avg Price ($)", "Purchases")
+  )
+```
+
+### Chart 2025
+
+```{r}
+
+basket_colors <- c(
+  "Avocado Hass"                  = "#2D6A4F",
+  "Banana"                        = "#E9C46A",
+  "Malk Almond Milk"              = "#A8DADC",
+  "Satur Farms Wild Arugula"      = "#52B788",
+  "Vital Farms Organic Eggs 18pk" = "#E76F51"
+)
+
+basket %>%
+  filter(year == 2025) %>%
+  group_by(item_standard, month_num) %>%
+  summarise(avg_price = mean(unit_price, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = month_num, y = avg_price,
+             color = item_standard, group = item_standard)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 4, alpha = 0.9) +
+  facet_wrap(~ item_standard, scales = "free_y", ncol = 3) +
+  scale_x_continuous(breaks = 1:12, labels = month.abb) +
+  scale_color_manual(values = basket_colors) +
+  labs(
+    title    = "2025 Price Trends — Personal Grocery Basket",
+    subtitle = "Whole Foods Manhattan · Normalized unit prices",
+    x        = NULL,
+    y        = "Unit Price ($)",
+    caption  = "Source: Personal grocery receipts · Analysis: Consumer Inflation Study"
+  ) +
+  theme_minimal(base_size = 13) +
+ theme(
+    legend.position    = "none",
+    strip.text         = element_text(face = "bold", size = 11),
+    plot.title         = element_text(face = "bold", size = 16),
+    plot.subtitle      = element_text(color = "grey40", size = 11),
+    plot.caption       = element_text(color = "grey50", size = 9),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    plot.background    = element_rect(fill = "white", color = NA),
+    panel.spacing      = unit(1.5, "lines"),
+    axis.text.x        = element_blank(),
+    axis.ticks.x       = element_blank()
+  )
+```
+
+### **Basket 2026**
+
+```{r}
+basket %>%
+  filter(year == 2026) %>%
+  group_by(item_standard, month_num, month) %>%
+  summarise(
+    avg_price = mean(unit_price, na.rm = TRUE),
+    n         = n(),
+    .groups   = "drop"
+  ) %>%
+  arrange(item_standard, month_num) %>%
+  knitr::kable(
+    caption = "2026 Monthly Average Prices — Personal Basket",
+    col.names = c("Item", "Month #", "Month", "Avg Price ($)", "Purchases")
+  )
+```
+
+### Chart 2026
+
+```{r}
+#| label: chart-2026
+#| fig-width: 12
+#| fig-height: 7
+
+basket_colors <- c(
+  "Avocado (4 count)"             = "#2D6A4F",
+  "Banana"                        = "#E9C46A",
+  "Malk Almond Milk"              = "#A8DADC",
+  "Satur Farms Wild Arugula"      = "#52B788",
+  "Vital Farms Organic Eggs 18pk" = "#E76F51"
+)
+
+basket %>%
+  filter(year == 2026) %>%
+  group_by(item_standard, month_num) %>%
+  summarise(avg_price = mean(unit_price, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = month_num, y = avg_price,
+             color = item_standard, group = item_standard)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 4, alpha = 0.9) +
+  facet_wrap(~ item_standard, scales = "free_y", ncol = 3) +
+  scale_x_continuous(breaks = 1:12, labels = month.abb) +
+  scale_color_manual(values = basket_colors) +
+  labs(
+    title    = "2026 Price Trends — Personal Grocery Basket",
+    subtitle = "Whole Foods Manhattan · Normalized unit prices (Jan–May)",
+    x        = NULL,
+    y        = "Unit Price ($)",
+    caption  = "Source: Personal grocery receipts · Analysis: Consumer Inflation Study"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position    = "none",
+    strip.text         = element_text(face = "bold", size = 11),
+    plot.title         = element_text(face = "bold", size = 16),
+    plot.subtitle      = element_text(color = "grey40", size = 11),
+    plot.caption       = element_text(color = "grey50", size = 9),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    plot.background    = element_rect(fill = "white", color = NA),
+    panel.spacing      = unit(1.5, "lines")
+  )
+```
+
+### All 3 years combined chart
+
+```{r}
+basket_colors <- c(
+  "Avocado"                       = "#2D6A4F",
+  "Banana"                        = "#E9C46A",
+  "Malk Almond Milk"              = "#A8DADC",
+  "Satur Farms Wild Arugula"      = "#52B788",
+  "Vital Farms Organic Eggs 18pk" = "#E76F51"
+)
+
+basket %>%
+  group_by(item_standard, date) %>%
+  summarise(avg_price = mean(unit_price, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = date, y = avg_price,
+             color = item_standard, group = item_standard)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3, alpha = 0.9) +
+  facet_wrap(~ item_standard, scales = "free_y", ncol = 3) +
+  scale_color_manual(values = basket_colors) +
+  labs(
+    title    = "Price Trends 2024–2026 — Personal Grocery Basket",
+    subtitle = "Whole Foods Manhattan · Normalized unit prices",
+    x        = NULL,
+    y        = "Unit Price ($)",
+    caption  = "Source: Personal grocery receipts · Analysis: Consumer Inflation Study"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position    = "none",
+    strip.text         = element_text(face = "bold", size = 11),
+    plot.title         = element_text(face = "bold", size = 16),
+    plot.subtitle      = element_text(color = "grey40", size = 11),
+    plot.caption       = element_text(color = "grey50", size = 9),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    plot.background    = element_rect(fill = "white", color = NA),
+    panel.spacing      = unit(1.5, "lines")
+  )
+```
+
+### Price Change Summary
+
+```{r}
+price_change <- basket %>%
+  group_by(item_standard, price_basis) %>%
+  arrange(date) %>%
+  summarise(
+    first_date  = first(date),
+    last_date   = last(date),
+    first_price = round(first(unit_price), 2),
+    last_price  = round(last(unit_price), 2),
+    pct_change  = round((last(unit_price) - first(unit_price)) / first(unit_price) * 100, 1),
+    .groups     = "drop"
+  ) %>%
+  arrange(desc(pct_change))
+
+price_change %>%
+  knitr::kable(
+    caption = "Price Change Summary — Personal Basket (First vs Last Observation)",
+    col.names = c("Item", "Price Unit", "First Date", "Last Date",
+                  "First Price ($)", "Last Price ($)", "% Change"),
+    align = c("l", "l", "l", "l", "r", "r", "r")
+  )
+```
+
+## **Step 8: CPI Comparison**
+
+```{r}
+cpi <- read_csv("https://raw.githubusercontent.com/MKudanova/Data607/refs/heads/main/FINAL_PROJECT/cpi.csv") %>%
+  mutate(
+    year = as.numeric(year),
+    month_num = as.numeric(month_num),
+    cpi = as.numeric(cpi)
+  ) %>%
+  filter(!is.na(cpi))
+
+head(cpi)
+
+basket_trimmed <- basket
+cpi_trimmed <- cpi %>%
+  filter(!(year == 2026 & month_num > 3))
+
+annual_avg <- basket_trimmed %>%
+  group_by(item_standard, year) %>%
+  summarise(avg_price = mean(unit_price, na.rm = TRUE), .groups = "drop")
+
+item_inflation <- annual_avg %>%
+  group_by(item_standard) %>%
+  arrange(year) %>%
+  mutate(
+    inflation = round((avg_price - lag(avg_price)) / lag(avg_price) * 100, 1)
+  ) %>%
+  filter(!is.na(inflation))
+
+cat("Per item price change rates:\n")
+print(item_inflation)
+
+basket_rate <- item_inflation %>%
+  group_by(year) %>%
+  summarise(
+    basket_rate = round(mean(inflation, na.rm = TRUE), 1),
+    n_items     = n(),
+    .groups     = "drop"
+  )
+
+cpi_rate <- cpi_trimmed %>%
+  group_by(year) %>%
+  summarise(avg_cpi = mean(cpi, na.rm = TRUE), .groups = "drop") %>%
+  arrange(year) %>%
+  mutate(
+    cpi_rate = round((avg_cpi - lag(avg_cpi)) / lag(avg_cpi) * 100, 1)
+  ) %>%
+  filter(!is.na(cpi_rate))
+
+comparison <- basket_rate %>%
+  left_join(cpi_rate %>% select(year, cpi_rate), by = "year") %>%
+  mutate(
+    period = case_when(
+      year == 2025 ~ "2024→2025 (full year)",
+      year == 2026 ~ "2025→2026 (Jan-May/Jan-Mar)"
+    ),
+    gap = round(basket_rate - cpi_rate, 1)
+  )
+
+comparison %>%
+  knitr::kable(
+    caption = "Personal Price Change Rate vs BLS Food at Home CPI",
+    col.names = c("Year", "Basket Rate (%)", "Items",
+                  "CPI Rate (%)", "Period", "Gap (pp)")
+  )
+```
+
+Personal prices rose 10.4% from 2024 to 2025, while official CPI increased only 2.2%—a gap of 8.2 percentage points. This shows individual consumers at premium retailers experienced substantially different inflation than the national average.
+
+### Persona "Inflation"
+
+```{r}
+basket_trimmed <- basket
+
+cpi_trimmed <- cpi %>%
+  filter(!(year == 2026 & month_num > 3))
+
+annual_avg <- basket_trimmed %>%
+  group_by(item_standard, year) %>%
+  summarise(avg_price = mean(unit_price, na.rm = TRUE), .groups = "drop")
+
+item_inflation <- annual_avg %>%
+  group_by(item_standard) %>%
+  arrange(year) %>%
+  mutate(
+    inflation = round((avg_price - lag(avg_price)) / lag(avg_price) * 100, 1)
+  ) %>%
+  filter(!is.na(inflation))
+
+cat("Per item price change rates:\n")
+print(item_inflation)
+
+basket_rate <- item_inflation %>%
+  group_by(year) %>%
+  summarise(
+    basket_rate = round(mean(inflation, na.rm = TRUE), 1),
+    n_items     = n(),
+    .groups     = "drop"
+  )
+
+cpi_rate <- cpi_trimmed %>%
+  group_by(year) %>%
+  summarise(avg_cpi = mean(cpi, na.rm = TRUE), .groups = "drop") %>%
+  arrange(year) %>%
+  mutate(
+    cpi_rate = round((avg_cpi - lag(avg_cpi)) / lag(avg_cpi) * 100, 1)
+  ) %>%
+  filter(!is.na(cpi_rate))
+
+comparison <- basket_rate %>%
+  left_join(cpi_rate %>% select(year, cpi_rate), by = "year") %>%
+  mutate(
+    period = case_when(
+      year == 2025 ~ "2024→2025\n(full year)",
+      year == 2026 ~ "2025→2026\n(Jan-May basket/Jan-Mar CPI)"
+    ),
+    gap = round(basket_rate - cpi_rate, 1)
+  )
+
+cat("\nComparison table:\n")
+comparison %>%
+  knitr::kable(
+    caption = "Personal Price Change Rate vs BLS Food at Home CPI",
+    col.names = c("Year", "Basket Rate (%)", "Items", 
+                  "CPI Rate (%)", "Gap (pp)", "Period")
+  )
+
+comparison %>%
+  select(period, basket_rate, cpi_rate) %>%
+  pivot_longer(cols = c(basket_rate, cpi_rate),
+               names_to = "source", values_to = "rate") %>%
+  mutate(source = ifelse(source == "basket_rate",
+                         "Personal Basket", "BLS Food at Home CPI")) %>%
+  ggplot(aes(x = period, y = rate, fill = source)) +
+  geom_col(position = "dodge", width = 0.6) +
+  geom_hline(yintercept = 0, color = "grey40") +
+  geom_text(aes(label = paste0(rate, "%")),
+            position = position_dodge(width = 0.6),
+            vjust = -0.2, size = 4, fontface = "bold") +
+  scale_fill_manual(values = c(
+    "Personal Basket"      = "#E76F51",
+    "BLS Food at Home CPI" = "#A8DADC"
+  )) +
+  labs(
+    title    = "Personal Price Change Rate vs Official Food CPI",
+    subtitle = "Equal-weighted 5-item basket · Whole Foods Manhattan",
+    x        = NULL,
+    y        = "Price Change Rate (%)",
+    fill     = NULL,
+    caption  = "Source: Personal grocery receipts & BLS CPI series CUUR0000SAF11\n*2026 data covers January–March only for both sources"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position    = "top",
+    plot.title         = element_text(face = "bold", size = 16),
+    plot.subtitle      = element_text(color = "grey40", size = 11),
+    plot.caption       = element_text(color = "grey50", size = 9),
+    axis.text.x        = element_text(size = 11),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    plot.background    = element_rect(fill = "white", color = NA)
+  )
+```
+
+### Regression analysis
+
+```{r}
+
+# Monthly CPI
+cpi_monthly <- cpi %>%
+  select(year, month_num, cpi)
+
+# Monthly average basket price
+basket_monthly <- basket %>%
+  group_by(year, month_num) %>%
+  summarise(avg_basket_price = mean(unit_price, na.rm = TRUE), .groups = "drop")
+
+# Join by year and month
+regression_data <- basket_monthly %>%
+  left_join(cpi_monthly, by = c("year", "month_num")) %>%
+  filter(!is.na(cpi), !is.na(avg_basket_price))
+
+cat("Data points for regression:", nrow(regression_data), "\n")
+
+# Linear regression
+model <- lm(avg_basket_price ~ cpi, data = regression_data)
+summary(model)
+```
+
+The regression shows a weak relationship between BLS CPI and personal basket prices (R² = 0.147). While the trend is positive, CPI explains only 14.7% of the variance in monthly basket prices. This weak correlation supports our conclusion that national inflation indices may not capture individual consumer experiences.
+
+### Regression Chart
+
+```{r}
+regression_data %>%
+  ggplot(aes(x = cpi, y = avg_basket_price)) +
+  geom_point(size = 3, color = "#E76F51", alpha = 0.8) +
+  geom_smooth(method = "lm", color = "#2D6A4F", se = TRUE) +
+  labs(
+    title    = "Personal Basket Price vs BLS Food at Home CPI",
+    subtitle = "Linear regression — monthly observations 2024–2026",
+    x        = "BLS Food at Home CPI Index",
+    y        = "Avg Monthly Basket Price ($)",
+    caption  = "R² = 0.147, p = 0.059 · Source: Personal receipts & BLS CPI"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 16),
+    plot.subtitle    = element_text(color = "grey40", size = 11),
+    plot.caption     = element_text(color = "grey50", size = 9),
+    panel.grid.minor = element_blank(),
+    plot.background  = element_rect(fill = "white", color = NA)
+  )
+```
+
+## Step 9: Sub analysis: Did Amazon Prime savings at Whole Foods become more or less generous over time?
+
+```{r}
+prime_savings %>%
+  select(date, item, price, savings_amount) %>%
+  arrange(date) %>%
+  head(20)
+```
+
+```{r}
+# Get trip totals from master
+trip_totals <- master %>%
+  filter(store == "Whole Foods Manhattan") %>%
+  filter(!is.na(date)) %>%
+  group_by(date) %>%
+  summarise(
+    trip_total = sum(price[price > 0], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Join savings to trips
+prime_analysis <- prime_savings %>%
+  filter(str_detect(tolower(item), "saving")) %>%
+  filter(!is.na(date), !is.na(price)) %>%
+  mutate(
+    year           = year(date),
+    savings_amount = abs(price)
+  ) %>%
+  left_join(trip_totals, by = "date") %>%
+  mutate(savings_pct = round(savings_amount / trip_total * 100, 1))
+
+prime_annual <- prime_analysis %>%
+  group_by(year) %>%
+  summarise(
+    avg_savings_amt = round(mean(savings_amount, na.rm = TRUE), 2),
+    avg_savings_pct = round(mean(savings_pct, na.rm = TRUE), 1),
+    total_saved     = round(sum(savings_amount, na.rm = TRUE), 2),
+    n_trips         = n(),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(year))
+
+
+# Annual summary
+prime_analysis <- prime_savings %>%
+  filter(str_detect(tolower(item), "saving")) %>%
+  filter(!is.na(date)) %>%
+  mutate(
+    year           = year(date),
+    savings_amount = abs(price)
+  ) %>%
+  left_join(trip_totals, by = "date") %>%
+  mutate(savings_pct = round(savings_amount / trip_total * 100, 1))
+
+print(prime_annual)
+```
+
+Amazon Prime membership discounts declined in absolute terms (\$3.20 average per trip in 2024 vs. \$1.95 in 2026) but remained stable as a percentage of spending (6.5-7.4%). However, 2026 data covers only January through May, so year-over-year comparisons for that period are preliminary. Prime savings did not offset the rising prices documented in the main analysis.
+
+### Prime Chart
+
+```{r}
+# Dollar savings chart
+p1 <- prime_annual %>%
+  ggplot(aes(x = factor(year), y = avg_savings_amt, fill = factor(year))) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = paste0("$", avg_savings_amt)),
+            vjust = 1, fontface = "bold", size = 4) +
+  scale_fill_manual(values = c("2024" = "#E76F51", 
+                                "2025" = "#A8DADC", 
+                                "2026" = "#52B788")) +
+  labs(title = "Avg Prime Savings per Trip ($)",
+       x = NULL, y = "Avg Savings ($)") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"))
+
+# Savings % chart
+p2 <- prime_annual %>%
+  ggplot(aes(x = factor(year), y = avg_savings_pct, fill = factor(year))) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = paste0(avg_savings_pct, "%")),
+            vjust = 1, fontface = "bold", size = 4) +
+  scale_fill_manual(values = c("2024" = "#E76F51", 
+                                "2025" = "#A8DADC", 
+                                "2026" = "#52B788")) +
+  labs(title = "Avg Prime Savings as % of Trip",
+       x = NULL, y = "Savings (%)") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"))
+
+library(patchwork)
+p1 + p2 +
+  plot_annotation(
+    title    = "Amazon Prime Savings at Whole Foods — 2024 to 2026",
+    subtitle = "Left: average dollar savings per trip · Right: savings as % of trip total",
+    caption  = "Source: Personal grocery receipts · Whole Foods Manhattan",
+    theme    = theme(
+      plot.title    = element_text(face = "bold", size = 16),
+      plot.subtitle = element_text(color = "grey40", size = 11),
+      plot.caption  = element_text(color = "grey50", size = 9)
+    )
+  )
+```
+
+## Conclusions
+
+This analysis set out to answer one question: does official food inflation reflect what real consumers actually pay? Based on three years of personal grocery receipts from Whole Foods Manhattan, the answer is: **not always, and not proportionally.**
+
+Between 2024 and 2025, the personal basket prices rose by 10.4% nearly five times the official BLS Food at Home CPI increase of 2.2% for the same period. This gap was largely driven by the Vital Farms organic egg price spike, which reflected the well-documented 2024-2025 avian flu outbreak, and a significant rise in avocado prices. Official CPI, which averages across thousands of products and millions of consumers nationwide, smoothed out the volatility that individual shoppers actually experienced.
+
+The linear regression between monthly basket prices and CPI (R² = 0.147, p = 0.059) confirmed that CPI is a weak and statistically marginal predictor of personal grocery prices, further supporting the conclusion that aggregate inflation metrics may underrepresent the experience of individual consumers particularly those shopping at premium stores.
+
+The Amazon Prime savings sub-analysis revealed that while dollar savings per trip declined from \$3.20 in 2024 to \$1.95 in 2026, savings as a percentage of trip total remained relatively stable at 6.5-7.4%, suggesting that Prime discounts did not meaningfully offset rising prices.
+
+## Limitations
+
+This analysis has several important limitations that should be considered when interpreting the findings. First, the dataset reflects a single household's shopping behavior at one urban chain grocery store and cannot be generalized to broader consumer populations. Second, OCR extraction from receipt photographs introduced systematic noise in item names, requiring manual synonym mapping that may have introduced subjectivity in item classification. Third, the personal basket consists of only 5 items, which is far narrower than the hundreds of items tracked by the BLS CPI. Fourth, the 2026 data covers only January through May, making year-over-year comparisons for that period preliminary. Fifth, the equal-weighting methodology applied to basket items does not reflect actual household expenditure patterns, unlike the expenditure-weighted approach used by the BLS. Finally, with only 25 monthly observations, the regression analysis has limited statistical power. However, these limitations are inherent to any consumer-level longitudinal study conducted outside of a controlled research setting. The self-collected nature of this dataset is also its strength it captures real purchasing behavior with no sampling bias, providing an honest and unfiltered view of price changes as experienced by an actual consumer over time.
